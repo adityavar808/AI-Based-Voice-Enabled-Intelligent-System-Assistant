@@ -11,7 +11,7 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
   const [particles, setParticles] = useState([]);
   const [dimensions, setDimensions] = useState({ width: 500, height: 500 });
   const animationFrameRef = useRef(null);
-  
+
   const intensity = Math.min(Math.max(audioLevel * 2, 0), 1); // Ensure 0-1 range
 
   // Initialize audio visualization from audioRef
@@ -23,23 +23,28 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
     const initAudioVisualization = async () => {
       // Prevent multiple initializations
       if (isInitialized) {
-        console.log('⚠️ Already initialized, skipping...');
+        console.log("⚠️ Already initialized, skipping...");
         return;
       }
 
       try {
-        console.log('🎧 Starting audio visualization init...');
+        console.log("🎧 Starting audio visualization init...");
 
         // Create audio context
         if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-          console.log('✅ Audio context created, state:', audioContextRef.current.state);
+          audioContextRef.current = new (
+            window.AudioContext || window.webkitAudioContext
+          )();
+          console.log(
+            "✅ Audio context created, state:",
+            audioContextRef.current.state,
+          );
         }
 
         // Resume if suspended
-        if (audioContextRef.current.state === 'suspended') {
+        if (audioContextRef.current.state === "suspended") {
           await audioContextRef.current.resume();
-          console.log('✅ Audio context resumed');
+          console.log("✅ Audio context resumed");
         }
 
         // Create analyzer
@@ -47,68 +52,78 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
           analyserRef.current = audioContextRef.current.createAnalyser();
           analyserRef.current.fftSize = 512;
           analyserRef.current.smoothingTimeConstant = 0.85;
-          dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
-          console.log('✅ Analyser created, bin count:', analyserRef.current.frequencyBinCount);
+          dataArrayRef.current = new Uint8Array(
+            analyserRef.current.frequencyBinCount,
+          );
+          console.log(
+            "✅ Analyser created, bin count:",
+            analyserRef.current.frequencyBinCount,
+          );
         }
-        
+
         // Create and connect audio source (ONLY ONCE!)
         if (!audioElementSourceRef.current) {
-          console.log('🔗 Creating audio source...');
-          audioElementSourceRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
+          console.log("🔗 Creating audio source...");
+          audioElementSourceRef.current =
+            audioContextRef.current.createMediaElementSource(audioRef.current);
           audioElementSourceRef.current.connect(analyserRef.current);
           analyserRef.current.connect(audioContextRef.current.destination);
-          console.log('✅ Audio pipeline connected: audio → analyser → speakers');
-          
+          console.log(
+            "✅ Audio pipeline connected: audio → analyser → speakers",
+          );
+
           // Test: Get initial data
           setTimeout(() => {
             if (dataArrayRef.current) {
               analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-              const avg = dataArrayRef.current.reduce((a, b) => a + b, 0) / dataArrayRef.current.length;
-              console.log('🧪 Test - Initial audio level:', avg.toFixed(2));
+              const avg =
+                dataArrayRef.current.reduce((a, b) => a + b, 0) /
+                dataArrayRef.current.length;
+              console.log("🧪 Test - Initial audio level:", avg.toFixed(2));
             }
           }, 500);
         }
 
         isInitialized = true;
-        console.log('✅ Audio visualization fully initialized!');
+        console.log("✅ Audio visualization fully initialized!");
       } catch (err) {
-        console.error('❌ Audio visualization error:', err);
+        console.error("❌ Audio visualization error:", err);
       }
     };
 
     // Initialize as soon as component mounts
     const initTimer = setTimeout(() => {
-      console.log('⏰ Pre-initializing audio visualization...');
+      console.log("⏰ Pre-initializing audio visualization...");
       initAudioVisualization();
     }, 100);
 
     // Also handle play event
     const handlePlay = async () => {
-      console.log('▶️ Audio play event detected');
+      console.log("▶️ Audio play event detected");
       if (!isInitialized) {
         await initAudioVisualization();
       }
-      
+
       // Resume context if suspended
-      if (audioContextRef.current?.state === 'suspended') {
+      if (audioContextRef.current?.state === "suspended") {
         await audioContextRef.current.resume();
-        console.log('Context resumed on play');
+        console.log("Context resumed on play");
       }
     };
 
     const audioElement = audioRef.current;
-    audioElement.addEventListener('play', handlePlay);
+    audioElement.addEventListener("play", handlePlay);
 
     return () => {
       clearTimeout(initTimer);
-      audioElement?.removeEventListener('play', handlePlay);
+      audioElement?.removeEventListener("play", handlePlay);
     };
   }, [audioRef]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (audioContextRef.current?.state !== 'closed') {
+      if (audioContextRef.current?.state !== "closed") {
         audioContextRef.current?.close();
       }
     };
@@ -119,17 +134,17 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
     const updateDimensions = () => {
       if (containerRef.current) {
         const size = Math.min(
-          containerRef.current.offsetWidth, 
+          containerRef.current.offsetWidth,
           containerRef.current.offsetHeight,
-          800 // Max size
+          800, // Max size
         );
         setDimensions({ width: size, height: size });
       }
     };
 
     updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
   // Initialize particle system
@@ -163,16 +178,23 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
       // Get real-time audio frequency data
       if (analyserRef.current && dataArrayRef.current) {
         analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-        
+
         // Debug: Log audio data every 60 frames (once per second at 60fps)
         if (debugCounter % 60 === 0) {
-          const avgVolume = dataArrayRef.current.reduce((a, b) => a + b, 0) / dataArrayRef.current.length;
+          const avgVolume =
+            dataArrayRef.current.reduce((a, b) => a + b, 0) /
+            dataArrayRef.current.length;
           const maxVolume = Math.max(...dataArrayRef.current);
-          console.log('🎵 Audio data - Avg:', avgVolume.toFixed(2), 'Max:', maxVolume);
+          console.log(
+            "🎵 Audio data - Avg:",
+            avgVolume.toFixed(2),
+            "Max:",
+            maxVolume,
+          );
         }
         debugCounter++;
       }
-      
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       frame += 1;
 
@@ -181,41 +203,61 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
 
       particles.forEach((particle, index) => {
         // Map each particle to a frequency band
-        const audioIndex = Math.floor((index / particles.length) * (dataArrayRef.current?.length || 128));
+        const audioIndex = Math.floor(
+          (index / particles.length) * (dataArrayRef.current?.length || 128),
+        );
         const audioValue = (dataArrayRef.current?.[audioIndex] || 0) / 255;
-        
-        const currentAngle = particle.angle + frame * particle.speed * energyBoost;
-        const wobble = Math.sin(frame * particle.pulseSpeed + particle.offset) * (4 * scaleFactor);
-        
+
+        const currentAngle =
+          particle.angle + frame * particle.speed * energyBoost;
+        const wobble =
+          Math.sin(frame * particle.pulseSpeed + particle.offset) *
+          (4 * scaleFactor);
+
         // Audio-reactive expansion (stronger response)
         const audioBoost = audioValue * 40 * scaleFactor;
-        const currentRadius = particle.radius + wobble + audioBoost + (isSpeaking ? intensity * 12 * scaleFactor : 0);
+        const currentRadius =
+          particle.radius +
+          wobble +
+          audioBoost +
+          (isSpeaking ? intensity * 12 * scaleFactor : 0);
 
         const x = centerX + Math.cos(currentAngle) * currentRadius;
         const y = centerY + Math.sin(currentAngle) * currentRadius;
 
         // Create gradient with blue neon colors
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, particle.size * 4 * scaleFactor);
+        const gradient = ctx.createRadialGradient(
+          x,
+          y,
+          0,
+          x,
+          y,
+          particle.size * 4 * scaleFactor,
+        );
         const colorAngle = (currentAngle + Math.PI) / (Math.PI * 2);
-        
+
         // Cyan to Blue gradient
         const r = Math.floor(34 + (59 - 34) * colorAngle);
         const g = Math.floor(211 - (211 - 130) * colorAngle);
         const b = Math.floor(238 + (246 - 238) * colorAngle);
-        
+
         // Audio-reactive brightness
         const baseOpacity = 0.85 + intensity * 0.15;
         const audioOpacity = Math.min(baseOpacity + audioValue * 0.4, 1);
-        
+
         gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${audioOpacity})`);
-        gradient.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, ${(0.4 + intensity * 0.3) * (0.6 + audioValue * 0.4)})`);
+        gradient.addColorStop(
+          0.4,
+          `rgba(${r}, ${g}, ${b}, ${(0.4 + intensity * 0.3) * (0.6 + audioValue * 0.4)})`,
+        );
         gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        
+
         // Audio-reactive particle size
-        const particleSize = particle.size * (2 + intensity + audioValue * 2.5) * scaleFactor;
+        const particleSize =
+          particle.size * (2 + intensity + audioValue * 2.5) * scaleFactor;
         ctx.arc(x, y, particleSize, 0, Math.PI * 2);
         ctx.fill();
       });
@@ -233,11 +275,13 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
   }, [particles, isSpeaking, intensity, dimensions]);
 
   return (
-    <div ref={containerRef} className="relative flex items-center justify-center w-full h-full bg-black overflow-hidden">
-      
+    <div
+      ref={containerRef}
+      className="relative flex items-center justify-center w-full h-full bg-black overflow-hidden"
+    >
       {/* Atmospheric Background Glows */}
       <div className="absolute inset-0 opacity-40">
-        <motion.div 
+        <motion.div
           className="absolute top-1/4 left-1/4 w-2/5 h-2/5 bg-blue-500/30 rounded-full blur-[140px]"
           animate={{
             scale: [1, 1.2, 1],
@@ -249,7 +293,7 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
             ease: "easeInOut",
           }}
         />
-        <motion.div 
+        <motion.div
           className="absolute bottom-1/3 right-1/3 w-1/3 h-1/3 bg-cyan-500/30 rounded-full blur-[120px]"
           animate={{
             scale: [1.1, 1, 1.1],
@@ -262,7 +306,7 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
             delay: 0.5,
           }}
         />
-        <motion.div 
+        <motion.div
           className="absolute top-1/2 right-1/4 w-1/4 h-1/4 bg-blue-400/25 rounded-full blur-[100px]"
           animate={{
             scale: [1, 1.15, 1],
@@ -283,7 +327,8 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
         style={{
           width: `${dimensions.width * 0.58}px`,
           height: `${dimensions.height * 0.58}px`,
-          background: "radial-gradient(circle, rgba(59, 130, 246, 0.45) 0%, rgba(34, 211, 238, 0.35) 40%, rgba(37, 99, 235, 0.25) 70%, transparent 90%)",
+          background:
+            "radial-gradient(circle, rgba(59, 130, 246, 0.45) 0%, rgba(34, 211, 238, 0.35) 40%, rgba(37, 99, 235, 0.25) 70%, transparent 90%)",
           filter: "blur(50px)",
         }}
         animate={{
@@ -303,21 +348,24 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
         width={dimensions.width}
         height={dimensions.height}
         className="absolute z-10"
-        style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px` }}
+        style={{
+          width: `${dimensions.width}px`,
+          height: `${dimensions.height}px`,
+        }}
       />
 
       {/* SVG Ring Structure */}
       <motion.svg
         viewBox="0 0 400 400"
         className="relative z-20"
-        style={{ 
-          width: `${dimensions.width * 0.82}px`, 
-          height: `${dimensions.height * 0.82}px` 
+        style={{
+          width: `${dimensions.width * 0.82}px`,
+          height: `${dimensions.height * 0.82}px`,
         }}
         animate={{
           scale: isSpeaking ? 1.02 + (intensity || 0) * 0.03 : 1,
         }}
-        transition={{ 
+        transition={{
           type: "spring",
           stiffness: 400,
           damping: 25,
@@ -325,7 +373,13 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
       >
         <defs>
           {/* Advanced Glow Filter */}
-          <filter id="advancedGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <filter
+            id="advancedGlow"
+            x="-50%"
+            y="-50%"
+            width="200%"
+            height="200%"
+          >
             <feGaussianBlur stdDeviation="2" result="blur1" />
             <feGaussianBlur stdDeviation="6" result="blur2" />
             <feGaussianBlur stdDeviation="12" result="blur3" />
@@ -403,7 +457,7 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
             opacity: isSpeaking ? 0.92 + (intensity || 0) * 0.08 : 0.75,
             r: isSpeaking ? 137 + (intensity || 0) * 6 : 137,
           }}
-          transition={{ 
+          transition={{
             duration: 0.12,
             ease: "easeOut",
           }}
@@ -443,35 +497,36 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
         />
 
         {/* Energy Burst Lines */}
-        {isSpeaking && Array.from({ length: 16 }).map((_, i) => {
-          const angle = (Math.PI * 2 * i) / 16;
-          const startR = 142;
-          const endR = 158 + (intensity || 0) * 12;
-          return (
-            <motion.line
-              key={i}
-              x1={200 + Math.cos(angle) * startR}
-              y1={200 + Math.sin(angle) * startR}
-              x2={200 + Math.cos(angle) * endR}
-              y2={200 + Math.sin(angle) * endR}
-              stroke="#60a5fa"
-              strokeWidth="2"
-              strokeLinecap="round"
-              filter="url(#advancedGlow)"
-              initial={{ opacity: 0, strokeWidth: 0 }}
-              animate={{ 
-                opacity: [0, 0.7 + (intensity || 0) * 0.3, 0],
-                strokeWidth: [0, 2.5, 0],
-              }}
-              transition={{
-                duration: 0.7,
-                repeat: Infinity,
-                delay: i * 0.06,
-                ease: "easeInOut",
-              }}
-            />
-          );
-        })}
+        {isSpeaking &&
+          Array.from({ length: 16 }).map((_, i) => {
+            const angle = (Math.PI * 2 * i) / 16;
+            const startR = 142;
+            const endR = 158 + (intensity || 0) * 12;
+            return (
+              <motion.line
+                key={i}
+                x1={200 + Math.cos(angle) * startR}
+                y1={200 + Math.sin(angle) * startR}
+                x2={200 + Math.cos(angle) * endR}
+                y2={200 + Math.sin(angle) * endR}
+                stroke="#60a5fa"
+                strokeWidth="2"
+                strokeLinecap="round"
+                filter="url(#advancedGlow)"
+                initial={{ opacity: 0, strokeWidth: 0 }}
+                animate={{
+                  opacity: [0, 0.7 + (intensity || 0) * 0.3, 0],
+                  strokeWidth: [0, 2.5, 0],
+                }}
+                transition={{
+                  duration: 0.7,
+                  repeat: Infinity,
+                  delay: i * 0.06,
+                  ease: "easeInOut",
+                }}
+              />
+            );
+          })}
 
         {/* Pulsing Center Dot */}
         <motion.circle
@@ -490,6 +545,32 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
             ease: "easeInOut",
           }}
         />
+        {/* ZENIX Text */}
+        <motion.text
+          x="200"
+          y="212"
+          textAnchor="middle"
+          fontSize="32"
+          fontWeight="600"
+          letterSpacing="8"
+          fill="#e0f2fe"
+          style={{
+            fontFamily: "Orbitron, sans-serif",
+          }}
+          filter="url(#advancedGlow)"
+          initial={{ opacity: 0.8 }}
+          animate={{
+            opacity: isSpeaking ? [0.8, 1, 0.8] : 0.85,
+            scale: isSpeaking ? 1 + (intensity || 0) * 0.05 : 1,
+          }}
+          transition={{
+            duration: 0.6,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        >
+          ZENIX
+        </motion.text>
       </motion.svg>
 
       {/* Rotating Atmospheric Layer */}
@@ -498,7 +579,8 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
         style={{
           width: `${dimensions.width * 1.1}px`,
           height: `${dimensions.height * 1.1}px`,
-          background: "radial-gradient(circle, transparent 20%, rgba(59, 130, 246, 0.06) 45%, rgba(14, 165, 233, 0.04) 65%, transparent 85%)",
+          background:
+            "radial-gradient(circle, transparent 20%, rgba(59, 130, 246, 0.06) 45%, rgba(14, 165, 233, 0.04) 65%, transparent 85%)",
         }}
         animate={{
           rotate: 360,
