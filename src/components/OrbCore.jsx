@@ -1,522 +1,515 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 
-function OrbCore() {
-  const [phase, setPhase] = useState("idle");
-  // idle | listening | processing | responding
+function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const dataArrayRef = useRef(null);
+  const audioElementSourceRef = useRef(null);
+  const [particles, setParticles] = useState([]);
+  const [dimensions, setDimensions] = useState({ width: 500, height: 500 });
+  const animationFrameRef = useRef(null);
+  
+  const intensity = Math.min(Math.max(audioLevel * 2, 0), 1); // Ensure 0-1 range
 
-  const startInteraction = () => {
-    if (phase !== "idle") return;
+  // Initialize audio visualization from audioRef
+  useEffect(() => {
+    if (!audioRef?.current) return;
 
-    setPhase("listening");
+    let isInitialized = false;
 
-    setTimeout(() => {
-      setPhase("processing");
+    const initAudioVisualization = async () => {
+      // Prevent multiple initializations
+      if (isInitialized) {
+        console.log('⚠️ Already initialized, skipping...');
+        return;
+      }
 
-      setTimeout(() => {
-        setPhase("responding");
+      try {
+        console.log('🎧 Starting audio visualization init...');
 
-        setTimeout(() => {
-          setPhase("idle");
-        }, 4000);
-      }, 2000);
-    }, 2000);
-  };
+        // Create audio context
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+          console.log('✅ Audio context created, state:', audioContextRef.current.state);
+        }
+
+        // Resume if suspended
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume();
+          console.log('✅ Audio context resumed');
+        }
+
+        // Create analyzer
+        if (!analyserRef.current) {
+          analyserRef.current = audioContextRef.current.createAnalyser();
+          analyserRef.current.fftSize = 512;
+          analyserRef.current.smoothingTimeConstant = 0.85;
+          dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
+          console.log('✅ Analyser created, bin count:', analyserRef.current.frequencyBinCount);
+        }
+        
+        // Create and connect audio source (ONLY ONCE!)
+        if (!audioElementSourceRef.current) {
+          console.log('🔗 Creating audio source...');
+          audioElementSourceRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
+          audioElementSourceRef.current.connect(analyserRef.current);
+          analyserRef.current.connect(audioContextRef.current.destination);
+          console.log('✅ Audio pipeline connected: audio → analyser → speakers');
+          
+          // Test: Get initial data
+          setTimeout(() => {
+            if (dataArrayRef.current) {
+              analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+              const avg = dataArrayRef.current.reduce((a, b) => a + b, 0) / dataArrayRef.current.length;
+              console.log('🧪 Test - Initial audio level:', avg.toFixed(2));
+            }
+          }, 500);
+        }
+
+        isInitialized = true;
+        console.log('✅ Audio visualization fully initialized!');
+      } catch (err) {
+        console.error('❌ Audio visualization error:', err);
+      }
+    };
+
+    // Initialize as soon as component mounts
+    const initTimer = setTimeout(() => {
+      console.log('⏰ Pre-initializing audio visualization...');
+      initAudioVisualization();
+    }, 100);
+
+    // Also handle play event
+    const handlePlay = async () => {
+      console.log('▶️ Audio play event detected');
+      if (!isInitialized) {
+        await initAudioVisualization();
+      }
+      
+      // Resume context if suspended
+      if (audioContextRef.current?.state === 'suspended') {
+        await audioContextRef.current.resume();
+        console.log('Context resumed on play');
+      }
+    };
+
+    const audioElement = audioRef.current;
+    audioElement.addEventListener('play', handlePlay);
+
+    return () => {
+      clearTimeout(initTimer);
+      audioElement?.removeEventListener('play', handlePlay);
+    };
+  }, [audioRef]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (audioContextRef.current?.state !== 'closed') {
+        audioContextRef.current?.close();
+      }
+    };
+  }, []);
+
+  // Handle responsive sizing
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const size = Math.min(
+          containerRef.current.offsetWidth, 
+          containerRef.current.offsetHeight,
+          800 // Max size
+        );
+        setDimensions({ width: size, height: size });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  // Initialize particle system
+  useEffect(() => {
+    const particleCount = 150;
+    const baseRadius = dimensions.width * 0.26;
+    const newParticles = Array.from({ length: particleCount }, (_, i) => ({
+      id: i,
+      angle: (Math.PI * 2 * i) / particleCount,
+      radius: baseRadius + Math.random() * (dimensions.width * 0.04),
+      speed: 0.0003 + Math.random() * 0.0007,
+      size: 0.8 + Math.random() * 1.5,
+      offset: Math.random() * Math.PI * 2,
+      pulseSpeed: 0.015 + Math.random() * 0.025,
+    }));
+    setParticles(newParticles);
+  }, [dimensions]);
+
+  // Animate particles with audio reactivity
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    let frame = 0;
+    let debugCounter = 0;
+
+    const animate = () => {
+      // Get real-time audio frequency data
+      if (analyserRef.current && dataArrayRef.current) {
+        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+        
+        // Debug: Log audio data every 60 frames (once per second at 60fps)
+        if (debugCounter % 60 === 0) {
+          const avgVolume = dataArrayRef.current.reduce((a, b) => a + b, 0) / dataArrayRef.current.length;
+          const maxVolume = Math.max(...dataArrayRef.current);
+          console.log('🎵 Audio data - Avg:', avgVolume.toFixed(2), 'Max:', maxVolume);
+        }
+        debugCounter++;
+      }
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      frame += 1;
+
+      const energyBoost = isSpeaking ? 1 + intensity * 0.4 : 1;
+      const scaleFactor = canvas.width / 500;
+
+      particles.forEach((particle, index) => {
+        // Map each particle to a frequency band
+        const audioIndex = Math.floor((index / particles.length) * (dataArrayRef.current?.length || 128));
+        const audioValue = (dataArrayRef.current?.[audioIndex] || 0) / 255;
+        
+        const currentAngle = particle.angle + frame * particle.speed * energyBoost;
+        const wobble = Math.sin(frame * particle.pulseSpeed + particle.offset) * (4 * scaleFactor);
+        
+        // Audio-reactive expansion (stronger response)
+        const audioBoost = audioValue * 40 * scaleFactor;
+        const currentRadius = particle.radius + wobble + audioBoost + (isSpeaking ? intensity * 12 * scaleFactor : 0);
+
+        const x = centerX + Math.cos(currentAngle) * currentRadius;
+        const y = centerY + Math.sin(currentAngle) * currentRadius;
+
+        // Create gradient with blue neon colors
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, particle.size * 4 * scaleFactor);
+        const colorAngle = (currentAngle + Math.PI) / (Math.PI * 2);
+        
+        // Cyan to Blue gradient
+        const r = Math.floor(34 + (59 - 34) * colorAngle);
+        const g = Math.floor(211 - (211 - 130) * colorAngle);
+        const b = Math.floor(238 + (246 - 238) * colorAngle);
+        
+        // Audio-reactive brightness
+        const baseOpacity = 0.85 + intensity * 0.15;
+        const audioOpacity = Math.min(baseOpacity + audioValue * 0.4, 1);
+        
+        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${audioOpacity})`);
+        gradient.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, ${(0.4 + intensity * 0.3) * (0.6 + audioValue * 0.4)})`);
+        gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        
+        // Audio-reactive particle size
+        const particleSize = particle.size * (2 + intensity + audioValue * 2.5) * scaleFactor;
+        ctx.arc(x, y, particleSize, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [particles, isSpeaking, intensity, dimensions]);
 
   return (
-    <motion.div
-  animate={
-    phase === "listening"
-      ? { x: [-2, 2, -2] }
-      : { x: 0 }
-  }
-  transition={{
-    duration: 0.1,
-    repeat: phase === "listening" ? Infinity : 0,
-  }}
-  className="relative flex items-center justify-center"
->
-
-      {/* Outer Glow Pulse - Triple Layer */}
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{
-          scale: [1, 1.4, 1],
-          opacity: [0.2, 0.4, 0.2],
-        }}
-        transition={{
-          duration: 4,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-        className="absolute w-[500px] h-[500px] rounded-full bg-cyan-400/10 blur-3xl"
-      />
-
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{
-          scale: [1.1, 1.5, 1.1],
-          opacity: [0.15, 0.3, 0.15],
-        }}
-        transition={{
-          duration: 5,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 0.5,
-        }}
-        className="absolute w-[550px] h-[550px] rounded-full bg-blue-400/10 blur-3xl"
-      />
-
-      {/* Outer Expanding Ring with Glow */}
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1.2, opacity: 0.6 }}
-        transition={{ duration: 1.5, ease: "easeOut" }}
-        className="absolute w-[400px] h-[400px] border-2 border-cyan-400/60 rounded-full shadow-[0_0_20px_rgba(0,247,255,0.3)]"
-      />
-
-      {/* Secondary Pulse Ring */}
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{
-          scale: [0.9, 1.15, 0.9],
-          opacity: [0.3, 0.6, 0.3],
-        }}
-        transition={{
-          duration: 2.5,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 0.3,
-        }}
-        className="absolute w-[370px] h-[370px] border-2 border-cyan-400/40 rounded-full shadow-[0_0_15px_rgba(0,247,255,0.2)]"
-      />
-
-      {/* Tertiary Pulse Ring */}
-      <motion.div
-        initial={{ scale: 0.7, opacity: 0 }}
-        animate={{
-          scale: [0.85, 1.1, 0.85],
-          opacity: [0.2, 0.5, 0.2],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 0.6,
-        }}
-        className="absolute w-[340px] h-[340px] border border-cyan-400/30 rounded-full"
-      />
-
-      {/* Main Core with Enhanced Gradient */}
-      <motion.div
-        onClick={startInteraction}
-        initial={{ scale: 0 }}
-        animate={{
-          scale: 1,
-          boxShadow:
-            phase === "listening"
-              ? "0 0 120px #00f7ff, inset 0 0 60px rgba(0,247,255,0.4)"
-              : phase === "processing"
-                ? "0 0 150px #0096c7, inset 0 0 80px rgba(0,150,255,0.5)"
-                : phase === "responding"
-                  ? "0 0 180px #00eaff, inset 0 0 100px rgba(0,247,255,0.6)"
-                  : undefined,
-        }}
-        transition={{ duration: 1.2 }}
-        className="relative w-[280px] h-[280px] rounded-full cursor-pointer
-bg-[radial-gradient(circle_at_30%_30%,_#00f7ff_0%,_#0096c7_30%,_#001f2f_70%)]
-shadow-[0_0_80px_#00f7ff,_inset_0_0_40px_rgba(0,247,255,0.3)]"
-      >
-        {/* Inner Shimmer - Multi-layer */}
-        <motion.div
+    <div ref={containerRef} className="relative flex items-center justify-center w-full h-full bg-black overflow-hidden">
+      
+      {/* Atmospheric Background Glows */}
+      <div className="absolute inset-0 opacity-40">
+        <motion.div 
+          className="absolute top-1/4 left-1/4 w-2/5 h-2/5 bg-blue-500/30 rounded-full blur-[140px]"
           animate={{
-            scale: [1, 1.15, 1],
-            opacity: [0.4, 0.7, 0.4],
+            scale: [1, 1.2, 1],
+            opacity: [0.3, 0.5, 0.3],
           }}
           transition={{
-            duration: 2.5,
+            duration: 4,
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute inset-10 rounded-full bg-cyan-400/30 blur-2xl"
         />
-
-        <motion.div
+        <motion.div 
+          className="absolute bottom-1/3 right-1/3 w-1/3 h-1/3 bg-cyan-500/30 rounded-full blur-[120px]"
           animate={{
-            scale: [1.1, 1.3, 1.1],
-            opacity: [0.2, 0.5, 0.2],
+            scale: [1.1, 1, 1.1],
+            opacity: [0.25, 0.45, 0.25],
           }}
           transition={{
-            duration: 3,
+            duration: 5,
             repeat: Infinity,
             ease: "easeInOut",
             delay: 0.5,
           }}
-          className="absolute inset-16 rounded-full bg-blue-400/20 blur-xl"
         />
-
-        {/* Core Energy Center */}
-        <motion.div
+        <motion.div 
+          className="absolute top-1/2 right-1/4 w-1/4 h-1/4 bg-blue-400/25 rounded-full blur-[100px]"
           animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.6, 1, 0.6],
+            scale: [1, 1.15, 1],
+            opacity: [0.2, 0.35, 0.2],
           }}
           transition={{
-            duration: 1.5,
+            duration: 3.5,
             repeat: Infinity,
             ease: "easeInOut",
+            delay: 1,
           }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-cyan-400/80 blur-md"
+        />
+      </div>
+
+      {/* Main Core Glow */}
+      <motion.div
+        className="absolute rounded-full"
+        style={{
+          width: `${dimensions.width * 0.58}px`,
+          height: `${dimensions.height * 0.58}px`,
+          background: "radial-gradient(circle, rgba(59, 130, 246, 0.45) 0%, rgba(34, 211, 238, 0.35) 40%, rgba(37, 99, 235, 0.25) 70%, transparent 90%)",
+          filter: "blur(50px)",
+        }}
+        animate={{
+          scale: isSpeaking ? [1, 1.12, 1] : 1,
+          opacity: isSpeaking ? [0.65, 0.95, 0.65] : 0.55,
+        }}
+        transition={{
+          duration: isSpeaking ? 0.6 : 2.5,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+
+      {/* Particle System Canvas */}
+      <canvas
+        ref={canvasRef}
+        width={dimensions.width}
+        height={dimensions.height}
+        className="absolute z-10"
+        style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px` }}
+      />
+
+      {/* SVG Ring Structure */}
+      <motion.svg
+        viewBox="0 0 400 400"
+        className="relative z-20"
+        style={{ 
+          width: `${dimensions.width * 0.82}px`, 
+          height: `${dimensions.height * 0.82}px` 
+        }}
+        animate={{
+          scale: isSpeaking ? 1.02 + (intensity || 0) * 0.03 : 1,
+        }}
+        transition={{ 
+          type: "spring",
+          stiffness: 400,
+          damping: 25,
+        }}
+      >
+        <defs>
+          {/* Advanced Glow Filter */}
+          <filter id="advancedGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" result="blur1" />
+            <feGaussianBlur stdDeviation="6" result="blur2" />
+            <feGaussianBlur stdDeviation="12" result="blur3" />
+            <feMerge>
+              <feMergeNode in="blur3" />
+              <feMergeNode in="blur2" />
+              <feMergeNode in="blur1" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
+          {/* Shimmer Gradient */}
+          <linearGradient id="shimmer" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="1" />
+            <stop offset="50%" stopColor="#0ea5e9" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#22d3ee" stopOpacity="1" />
+          </linearGradient>
+
+          {/* Core Depth Gradient */}
+          <radialGradient id="depthGradient">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+            <stop offset="50%" stopColor="#0ea5e9" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {/* Core Fill */}
+        <motion.circle
+          cx="200"
+          cy="200"
+          initial={{ r: 118 }}
+          animate={{
+            r: isSpeaking ? 118 + (intensity || 0) * 8 : 118,
+            opacity: isSpeaking ? [0.7, 1, 0.7] : 0.6,
+          }}
+          fill="url(#depthGradient)"
+          transition={{ duration: 0.4, repeat: Infinity }}
         />
 
-        {/* Core Particles - Radial Burst */}
-        {[...Array(12)].map((_, i) => {
-          const angle = (i * 30 * Math.PI) / 180;
-          const distance1 = 60;
-          const distance2 = 110;
+        {/* Outer Shimmer Ring */}
+        <motion.circle
+          cx="200"
+          cy="200"
+          initial={{ r: 147 }}
+          fill="transparent"
+          stroke="url(#shimmer)"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          opacity="0.35"
+          filter="url(#advancedGlow)"
+          animate={{
+            r: 147,
+            strokeDashoffset: isSpeaking ? [0, -628] : 0,
+            opacity: isSpeaking ? [0.35, 0.55, 0.35] : 0.35,
+          }}
+          transition={{
+            strokeDashoffset: { duration: 4, repeat: Infinity, ease: "linear" },
+            opacity: { duration: 1.5, repeat: Infinity },
+          }}
+          strokeDasharray="3 6"
+        />
 
+        {/* Primary Blue Ring */}
+        <motion.circle
+          cx="200"
+          cy="200"
+          initial={{ r: 137 }}
+          fill="transparent"
+          stroke="#3b82f6"
+          strokeWidth="2.8"
+          strokeLinecap="round"
+          filter="url(#advancedGlow)"
+          animate={{
+            strokeWidth: isSpeaking ? 3.2 + (intensity || 0) * 2.5 : 2.8,
+            opacity: isSpeaking ? 0.92 + (intensity || 0) * 0.08 : 0.75,
+            r: isSpeaking ? 137 + (intensity || 0) * 6 : 137,
+          }}
+          transition={{ 
+            duration: 0.12,
+            ease: "easeOut",
+          }}
+        />
+
+        {/* Middle Sky Blue Ring */}
+        <motion.circle
+          cx="200"
+          cy="200"
+          initial={{ r: 129 }}
+          fill="transparent"
+          stroke="#0ea5e9"
+          strokeWidth="1.2"
+          opacity="0.65"
+          filter="url(#advancedGlow)"
+          animate={{
+            r: 129,
+            opacity: isSpeaking ? 0.75 + (intensity || 0) * 0.25 : 0.65,
+            strokeWidth: isSpeaking ? 1.5 : 1.2,
+          }}
+          transition={{ duration: 0.2 }}
+        />
+
+        {/* Inner Cyan Ring */}
+        <motion.circle
+          cx="200"
+          cy="200"
+          initial={{ r: 116 }}
+          fill="transparent"
+          stroke="#22d3ee"
+          strokeWidth="0.8"
+          opacity="0.45"
+          animate={{
+            r: 116,
+            opacity: isSpeaking ? 0.6 : 0.45,
+          }}
+        />
+
+        {/* Energy Burst Lines */}
+        {isSpeaking && Array.from({ length: 16 }).map((_, i) => {
+          const angle = (Math.PI * 2 * i) / 16;
+          const startR = 142;
+          const endR = 158 + (intensity || 0) * 12;
           return (
-            <motion.div
+            <motion.line
               key={i}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{
-                scale: [0, 1.2, 0],
-                opacity: [0, 1, 0],
-                x: [
-                  0,
-                  Math.cos(angle) * distance1,
-                  Math.cos(angle) * distance2,
-                ],
-                y: [
-                  0,
-                  Math.sin(angle) * distance1,
-                  Math.sin(angle) * distance2,
-                ],
+              x1={200 + Math.cos(angle) * startR}
+              y1={200 + Math.sin(angle) * startR}
+              x2={200 + Math.cos(angle) * endR}
+              y2={200 + Math.sin(angle) * endR}
+              stroke="#60a5fa"
+              strokeWidth="2"
+              strokeLinecap="round"
+              filter="url(#advancedGlow)"
+              initial={{ opacity: 0, strokeWidth: 0 }}
+              animate={{ 
+                opacity: [0, 0.7 + (intensity || 0) * 0.3, 0],
+                strokeWidth: [0, 2.5, 0],
               }}
               transition={{
-                duration: 2.5,
+                duration: 0.7,
                 repeat: Infinity,
-                delay: i * 0.15,
-                ease: "easeOut",
+                delay: i * 0.06,
+                ease: "easeInOut",
               }}
-              className="absolute top-1/2 left-1/2 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_#00f7ff]"
-              style={{ marginLeft: "-4px", marginTop: "-4px" }}
             />
           );
         })}
 
-        {/* Floating Light Specs */}
-        {[...Array(6)].map((_, i) => (
-          <motion.div
-            key={`spec-${i}`}
-            initial={{
-              x: Math.random() * 200 - 100,
-              y: Math.random() * 200 - 100,
-              opacity: 0,
-            }}
-            animate={{
-              x: Math.random() * 200 - 100,
-              y: Math.random() * 200 - 100,
-              opacity: [0, 0.8, 0],
-              scale: [0, 1, 0],
-            }}
-            transition={{
-              duration: Math.random() * 3 + 2,
-              repeat: Infinity,
-              delay: i * 0.5,
-              ease: "easeInOut",
-            }}
-            className="absolute top-1/2 left-1/2 w-1 h-1 bg-cyan-300 rounded-full"
-          />
-        ))}
-      </motion.div>
-
-      {/* Rotating Ring 1 - Fast with Multiple Orbital Dots */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1, rotate: 360 }}
-        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-        className="absolute w-[340px] h-[340px] border-2 border-cyan-400/50 rounded-full shadow-[0_0_10px_rgba(0,247,255,0.2)]"
-      >
-        {/* Primary Orbital Dot */}
-        <motion.div
-          className="absolute top-0 left-1/2 w-3 h-3 bg-cyan-400 rounded-full -translate-x-1/2 shadow-[0_0_10px_#00f7ff]"
+        {/* Pulsing Center Dot */}
+        <motion.circle
+          cx="200"
+          cy="200"
+          initial={{ r: 4 }}
+          fill="#3b82f6"
+          filter="url(#advancedGlow)"
           animate={{
-            boxShadow: [
-              "0 0 10px #00f7ff",
-              "0 0 25px #00f7ff",
-              "0 0 10px #00f7ff",
-            ],
-            scale: [1, 1.3, 1],
+            r: isSpeaking ? 4 + (intensity || 0) * 3 : 4,
+            opacity: isSpeaking ? [0.75, 1, 0.75] : 0.85,
           }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        />
-
-        {/* Secondary Orbital Dot */}
-        <motion.div
-          className="absolute bottom-0 left-1/2 w-2 h-2 bg-blue-400 rounded-full -translate-x-1/2 shadow-[0_0_8px_#0096c7]"
-          animate={{
-            scale: [1, 1.5, 1],
-            opacity: [0.6, 1, 0.6],
+          transition={{
+            duration: 0.45,
+            repeat: Infinity,
+            ease: "easeInOut",
           }}
-          transition={{ duration: 1.2, repeat: Infinity }}
         />
+      </motion.svg>
 
-        {/* Trail Effect */}
-        <motion.div className="absolute top-0 left-1/2 w-1 h-20 bg-gradient-to-b from-cyan-400/60 to-transparent -translate-x-1/2 blur-sm" />
-      </motion.div>
-
-      {/* Rotating Ring 2 - Medium Speed Counter-clockwise */}
+      {/* Rotating Atmospheric Layer */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.8, rotate: -360 }}
-        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-        className="absolute w-[310px] h-[310px] border border-dashed border-cyan-400/40 rounded-full"
-      >
-        {/* Orbital Dot */}
-        <motion.div
-          className="absolute top-1/2 right-0 w-2.5 h-2.5 bg-cyan-400/80 rounded-full -translate-y-1/2 shadow-[0_0_8px_#00f7ff]"
-          animate={{
-            scale: [1, 1.4, 1],
-            opacity: [0.7, 1, 0.7],
-          }}
-          transition={{ duration: 1.8, repeat: Infinity }}
-        />
-      </motion.div>
-
-      {/* Rotating Ring 3 - Slow with Dotted Pattern */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.6, rotate: 360 }}
-        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        className="absolute w-[380px] h-[380px] border border-dotted border-cyan-400/30 rounded-full"
-      >
-        {/* Corner Accent Dots */}
-        {[0, 90, 180, 270].map((angle, i) => (
-          <motion.div
-            key={angle}
-            className="absolute w-1.5 h-1.5 bg-cyan-400/60 rounded-full"
-            style={{
-              top: "50%",
-              left: "50%",
-              transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-190px)`,
-            }}
-            animate={{
-              scale: [1, 1.5, 1],
-              opacity: [0.4, 1, 0.4],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              delay: i * 0.3,
-            }}
-          />
-        ))}
-      </motion.div>
-
-      {/* Scan Line Effect - Vertical */}
-      <motion.div
-        initial={{ y: -150, opacity: 0 }}
+        className="absolute rounded-full pointer-events-none z-5"
+        style={{
+          width: `${dimensions.width * 1.1}px`,
+          height: `${dimensions.height * 1.1}px`,
+          background: "radial-gradient(circle, transparent 20%, rgba(59, 130, 246, 0.06) 45%, rgba(14, 165, 233, 0.04) 65%, transparent 85%)",
+        }}
         animate={{
-          y: 150,
-          opacity: [0, 0.9, 0.9, 0],
+          rotate: 360,
         }}
         transition={{
-          duration: 2.5,
+          duration: 25,
           repeat: Infinity,
-          repeatDelay: 3,
-          ease: "easeInOut",
+          ease: "linear",
         }}
-        className="absolute w-[280px] h-[4px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent blur-[2px] shadow-[0_0_15px_#00f7ff]"
       />
-
-      {/* Scan Line Effect - Horizontal */}
-      <motion.div
-        initial={{ x: -150, opacity: 0 }}
-        animate={{
-          x: 150,
-          opacity: [0, 0.7, 0.7, 0],
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          repeatDelay: 4,
-          ease: "easeInOut",
-          delay: 1,
-        }}
-        className="absolute w-[4px] h-[280px] bg-gradient-to-b from-transparent via-cyan-400/70 to-transparent blur-[2px]"
-      />
-
-      {/* Energy Bars - Audio Visualizer Style */}
-      <div className="absolute bottom-[-70px] flex gap-2">
-        {[...Array(7)].map((_, i) => (
-          <motion.div
-            key={i}
-            initial={{ scaleY: 0 }}
-            animate={{
-              scaleY:
-                phase === "listening"
-                  ? [0.2, 1.4, 0.2]
-                  : phase === "processing"
-                    ? [0.5, 1.8, 0.5]
-                    : phase === "responding"
-                      ? [0.3, 1.2, 0.3]
-                      : [0.2, 0.6, 0.2],
-              opacity: [0.4, 1, 0.4],
-            }}
-            transition={{
-              duration: 1.2,
-              repeat: Infinity,
-              delay: i * 0.12,
-              ease: "easeInOut",
-            }}
-            className="w-1.5 bg-gradient-to-t from-cyan-400 to-blue-400 rounded-full origin-bottom shadow-[0_0_10px_rgba(0,247,255,0.5)]"
-            style={{
-              height: `${20 + Math.random() * 15}px`,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* ZENIX Text with Advanced Glitch Effect */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 3, duration: 1.2, type: "spring" }}
-        className="absolute text-3xl font-bold tracking-[10px] select-none"
-      >
-        <motion.span
-          animate={{
-            textShadow: [
-              "0 0 20px #00f7ff, 0 0 30px #00f7ff, 0 0 40px #00f7ff",
-              "0 0 30px #00f7ff, 0 0 50px #00f7ff, 0 0 60px #0096c7",
-              "0 0 20px #00f7ff, 0 0 30px #00f7ff, 0 0 40px #00f7ff",
-            ],
-          }}
-          transition={{ duration: 2.5, repeat: Infinity }}
-          className="relative"
-        >
-          <motion.span
-            animate={{
-              textShadow: [
-                "0 0 20px #00f7ff",
-                "0 0 40px #00f7ff",
-                "0 0 20px #00f7ff",
-              ],
-            }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            {phase === "idle" && "ZENIX"}
-            {phase === "listening" && "LISTENING"}
-            {phase === "processing" && "PROCESSING"}
-            {phase === "responding" && "75°F • SUNNY"}
-          </motion.span>
-
-          {/* Glitch Layers */}
-          <motion.span
-            animate={{
-              x: [-2, 2, -2],
-              opacity: [0, 0.5, 0],
-            }}
-            transition={{
-              duration: 0.2,
-              repeat: Infinity,
-              repeatDelay: 3,
-            }}
-            className="absolute inset-0 text-cyan-300"
-            style={{ clipPath: "polygon(0 0, 100% 0, 100% 45%, 0 45%)" }}
-          >
-            ZENIX
-          </motion.span>
-          <motion.span
-            animate={{
-              x: [2, -2, 2],
-              opacity: [0, 0.5, 0],
-            }}
-            transition={{
-              duration: 0.2,
-              repeat: Infinity,
-              repeatDelay: 3,
-              delay: 0.1,
-            }}
-            className="absolute inset-0 text-blue-300"
-            style={{ clipPath: "polygon(0 55%, 100% 55%, 100% 100%, 0 100%)" }}
-          >
-            ZENIX
-          </motion.span>
-        </motion.span>
-
-        {/* Underline Effect */}
-        <motion.div
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{ delay: 4, duration: 0.8 }}
-          className="absolute -bottom-2 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent origin-center"
-        />
-      </motion.div>
-
-      {/* Status Indicator - Enhanced */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 4.2 }}
-        className="absolute -bottom-16 flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900/50 border border-cyan-400/30 backdrop-blur-sm"
-      >
-        <motion.div
-          animate={{
-            scale: [1, 1.4, 1],
-            opacity: [0.6, 1, 0.6],
-          }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#00f7ff]"
-        />
-        <span className="text-xs text-cyan-400/80 tracking-wider font-medium uppercase">
-          System Online
-        </span>
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className="w-3 h-3"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="text-cyan-400/60"
-          >
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
-        </motion.div>
-      </motion.div>
-
-      {/* Corner Frame Accents */}
-      {[
-        { top: "-100px", left: "-100px", rotate: 0 },
-        { top: "-100px", right: "-100px", rotate: 90 },
-        { bottom: "-100px", left: "-100px", rotate: -90 },
-        { bottom: "-100px", right: "-100px", rotate: 180 },
-      ].map((pos, i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 0.3, scale: 1 }}
-          transition={{ delay: 1 + i * 0.1 }}
-          className="absolute w-20 h-20"
-          style={pos}
-        >
-          <svg viewBox="0 0 100 100" className="text-cyan-400/40">
-            <path
-              d="M 0 20 L 0 0 L 20 0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-            <circle cx="5" cy="5" r="2" fill="currentColor" />
-          </svg>
-        </motion.div>
-      ))}
-    </motion.div>
+    </div>
   );
 }
 

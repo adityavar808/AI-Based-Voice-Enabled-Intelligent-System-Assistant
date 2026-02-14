@@ -4,7 +4,7 @@ import SystemLogs from "./SystemLogs";
 import OrbCore from "./OrbCore";
 import { AnimatePresence } from "framer-motion";
 
-function CinematicBoot() {
+function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
   const [bootPhase, setBootPhase] = useState("initializing");
 
   useEffect(() => {
@@ -161,7 +161,7 @@ function CinematicBoot() {
         transition={{ duration: 0.8 }}
         className="w-full h-full bg-black flex items-center justify-center"
       >
-        <OrbCore />
+        <OrbCore isSpeaking={isSpeaking} audioLevel={audioLevel} audioRef={audioRef} />
       </motion.div>
     </AnimatePresence>
   );
