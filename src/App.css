@@ -1,0 +1,280 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Orbitron", sans-serif;
+}
+
+body {
+  background: black;
+  overflow: hidden;
+}
+
+.container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  color: #00f7ff;
+}
+canvas {
+  display: block;
+}
+/* ENTRY SCREEN */
+
+.entry-screen {
+  font-size: 20px;
+  letter-spacing: 4px;
+  cursor: pointer;
+  text-shadow: 0 0 10px #00f7ff;
+  transition: 0.3s;
+}
+
+.entry-screen:hover {
+  transform: scale(1.1);
+  text-shadow: 0 0 25px #00f7ff;
+}
+
+/* BOOT SCREEN */
+
+.boot-screen {
+  text-align: center;
+  position: relative;
+}
+
+.boot-title {
+  font-size: 28px;
+  letter-spacing: 6px;
+  margin-bottom: 15px;
+  animation: flicker 1.5s infinite alternate;
+  text-shadow: 0 0 15px #00f7ff;
+}
+
+.boot-sub {
+  font-size: 14px;
+  letter-spacing: 3px;
+  margin-bottom: 25px;
+  opacity: 0.8;
+  animation: pulseText 2s infinite;
+}
+
+.loading-bar {
+  width: 350px;
+  height: 4px;
+  background: rgba(0, 247, 255, 0.1);
+  overflow: hidden;
+  border-radius: 10px;
+  margin: auto;
+}
+
+.progress {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #00f7ff, #00bcd4);
+  animation: loading 3s linear forwards;
+}
+
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 350px;
+  height: 2px;
+  background: rgba(0, 247, 255, 0.6);
+  transform: translateX(-50%);
+  animation: scan 3s linear forwards;
+}
+
+/* FLASH */
+
+.flash-screen {
+  position: fixed;
+  inset: 0;
+  background: white;
+  animation: flash 0.4s forwards;
+  z-index: 10;
+}
+
+/* ORB */
+
+.orb-container {
+  position: relative;
+  width: 280px;
+  height: 280px;
+}
+
+.orb {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #00f7ff 0%, #001f2f 70%);
+  box-shadow:
+    0 0 40px #00f7ff,
+    inset 0 0 40px #00f7ff;
+  animation: pulse 2s infinite ease-in-out;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.core-text {
+  font-size: 28px;
+  letter-spacing: 6px;
+  animation: textGlow 2s infinite alternate;
+  z-index: 2;
+}
+
+.ripple {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(0, 247, 255, 0.4);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.orb:hover .ripple {
+  animation: rippleEffect 0.8s ease-out;
+}
+
+/* RINGS */
+
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 247, 255, 0.4);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.ring1 {
+  width: 340px;
+  height: 340px;
+  animation: rotate 6s linear infinite;
+}
+
+.ring2 {
+  width: 400px;
+  height: 400px;
+  animation: rotateReverse 8s linear infinite;
+}
+
+.ring3 {
+  width: 460px;
+  height: 460px;
+  animation: rotate 12s linear infinite;
+}
+
+/* ANIMATIONS */
+
+@keyframes loading {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes scan {
+  0% {
+    top: 0;
+    opacity: 1;
+  }
+  100% {
+    top: 100px;
+    opacity: 0;
+  }
+}
+
+@keyframes flicker {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulseText {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.07);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes textGlow {
+  from {
+    opacity: 0.6;
+    text-shadow: 0 0 10px #00f7ff;
+  }
+  to {
+    opacity: 1;
+    text-shadow:
+      0 0 25px #00f7ff,
+      0 0 40px #00f7ff;
+  }
+}
+
+@keyframes rippleEffect {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0.8;
+  }
+  100% {
+    width: 300px;
+    height: 300px;
+    opacity: 0;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes rotateReverse {
+  from {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+}
