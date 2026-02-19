@@ -11,6 +11,72 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
   const [particles, setParticles] = useState([]);
   const [dimensions, setDimensions] = useState({ width: 500, height: 500 });
   const animationFrameRef = useRef(null);
+  const micStreamRef = useRef(null);
+  const micSourceRef = useRef(null);
+  const [isMicActive, setIsMicActive] = useState(false);
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const silenceTimeoutRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const shouldRestartRef = useRef(true);
+
+  const startMic = async () => {
+    try {
+      if (audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume();
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+
+      micStreamRef.current = stream;
+
+      if (!analyserRef.current) {
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        analyserRef.current.fftSize = 512;
+        analyserRef.current.smoothingTimeConstant = 0.85;
+
+        dataArrayRef.current = new Uint8Array(
+          analyserRef.current.frequencyBinCount,
+        );
+      }
+
+      micSourceRef.current =
+        audioContextRef.current.createMediaStreamSource(stream);
+
+      micSourceRef.current.connect(analyserRef.current);
+
+      setIsMicActive(true);
+      console.log("🎤 AI Assistant Listening...");
+    } catch (err) {
+      console.error("Mic error:", err);
+    }
+  };
+
+  useEffect(() => {
+    audioContextRef.current = new (
+      window.AudioContext || window.webkitAudioContext
+    )();
+
+    return () => {
+      audioContextRef.current?.close();
+    };
+  }, []);
+
+  const stopMic = () => {
+    micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    micSourceRef.current?.disconnect();
+    micStreamRef.current = null;
+    micSourceRef.current = null;
+    setIsMicActive(false);
+
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
+    }
+
+    console.log("🛑 Mic auto stopped due to silence");
+  };
 
   const intensity = Math.min(Math.max(audioLevel * 2, 0), 1); // Ensure 0-1 range
 
@@ -29,18 +95,6 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
 
       try {
         console.log("🎧 Starting audio visualization init...");
-
-        // Create audio context
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (
-            window.AudioContext || window.webkitAudioContext
-          )();
-          console.log(
-            "✅ Audio context created, state:",
-            audioContextRef.current.state,
-          );
-        }
-
         // Resume if suspended
         if (audioContextRef.current.state === "suspended") {
           await audioContextRef.current.resume();
@@ -120,15 +174,6 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
     };
   }, [audioRef]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (audioContextRef.current?.state !== "closed") {
-        audioContextRef.current?.close();
-      }
-    };
-  }, []);
-
   // Handle responsive sizing
   useEffect(() => {
     const updateDimensions = () => {
@@ -149,7 +194,7 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
 
   // Initialize particle system
   useEffect(() => {
-    const particleCount = 150;
+    const particleCount = 120;
     const baseRadius = dimensions.width * 0.26;
     const newParticles = Array.from({ length: particleCount }, (_, i) => ({
       id: i,
@@ -176,29 +221,41 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
 
     const animate = () => {
       // Get real-time audio frequency data
+      let speaking = false;
+
       if (analyserRef.current && dataArrayRef.current) {
         analyserRef.current.getByteFrequencyData(dataArrayRef.current);
 
-        // Debug: Log audio data every 60 frames (once per second at 60fps)
-        if (debugCounter % 60 === 0) {
-          const avgVolume =
-            dataArrayRef.current.reduce((a, b) => a + b, 0) /
-            dataArrayRef.current.length;
-          const maxVolume = Math.max(...dataArrayRef.current);
-          console.log(
-            "🎵 Audio data - Avg:",
-            avgVolume.toFixed(2),
-            "Max:",
-            maxVolume,
-          );
+        const avgVolume =
+          dataArrayRef.current.reduce((a, b) => a + b, 0) /
+          dataArrayRef.current.length;
+
+        const threshold = 20;
+        speaking = avgVolume > threshold;
+
+        // 🔥 Silence detection logic
+        if (speaking) {
+          if (silenceTimeoutRef.current) {
+            clearTimeout(silenceTimeoutRef.current);
+            silenceTimeoutRef.current = null;
+          }
+        } else {
+          if (!silenceTimeoutRef.current && isMicActive) {
+            silenceTimeoutRef.current = setTimeout(() => {
+              stopMic();
+            }, 4000); // 4 sec silence
+          }
         }
-        debugCounter++;
+      }
+
+      if (speaking !== isUserSpeaking) {
+        setIsUserSpeaking(speaking);
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       frame += 1;
 
-      const energyBoost = isSpeaking ? 1 + intensity * 0.4 : 1;
+      const energyBoost = speaking ? 1.3 : 1;
       const scaleFactor = canvas.width / 500;
 
       particles.forEach((particle, index) => {
@@ -273,6 +330,148 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
       }
     };
   }, [particles, isSpeaking, intensity, dimensions]);
+
+  useEffect(() => {
+    let noiseSamples = [];
+    let noiseFloor = 0;
+    let calibrated = false;
+
+    let smoothedEnergy = 0;
+    let lastEnergy = 0;
+    let spikeCount = 0;
+    let voiceFrames = 0;
+    let cooldown = false;
+
+    const startMonitoring = async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      micStreamRef.current = stream;
+
+      const context = audioContextRef.current;
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.85;
+
+      const source = context.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      analyserRef.current = analyser;
+      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+
+      const calibrateNoise = () => {
+        analyser.getByteFrequencyData(dataArrayRef.current);
+
+        const avg =
+          dataArrayRef.current.reduce((a, b) => a + b, 0) /
+          dataArrayRef.current.length;
+
+        noiseSamples.push(avg);
+
+        if (noiseSamples.length < 120) {
+          requestAnimationFrame(calibrateNoise);
+        } else {
+          noiseFloor =
+            noiseSamples.reduce((a, b) => a + b, 0) / noiseSamples.length;
+
+          calibrated = true;
+
+          console.log("🔊 Noise Floor:", noiseFloor.toFixed(2));
+          monitor();
+        }
+      };
+
+      const monitor = () => {
+        analyser.getByteFrequencyData(dataArrayRef.current);
+
+        const rawEnergy =
+          dataArrayRef.current.reduce((a, b) => a + b, 0) /
+          dataArrayRef.current.length;
+
+        // 🔥 Energy Smoothing (EMA)
+        smoothedEnergy = smoothedEnergy * 0.85 + rawEnergy * 0.15;
+
+        const dynamicThreshold = noiseFloor + 10;
+
+        const energyDiff = smoothedEnergy - lastEnergy;
+
+        // 🔥 Spike detection
+        if (energyDiff > 8) {
+          spikeCount++;
+        } else {
+          spikeCount = Math.max(spikeCount - 1, 0);
+        }
+
+        // 🔥 Voice sustain detection
+        if (smoothedEnergy > dynamicThreshold) {
+          voiceFrames++;
+        } else {
+          voiceFrames = Math.max(voiceFrames - 1, 0);
+        }
+
+        // 🔥 Activation condition
+        if (!isMicActive && !cooldown && spikeCount > 2 && voiceFrames > 5) {
+          console.log("🚀 Smart Activation Triggered");
+
+          cooldown = true;
+
+          activateAssistant();
+
+          setTimeout(() => {
+            cooldown = false;
+          }, 5000); // 5 sec cooldown
+        }
+
+        lastEnergy = smoothedEnergy;
+
+        requestAnimationFrame(monitor);
+      };
+
+      calibrateNoise();
+    };
+
+    startMonitoring();
+  }, []);
+
+  const activateAssistant = () => {
+    console.log("🚀 Assistant Activated");
+
+    setIsMicActive(true);
+
+    startCommandRecognition();
+
+    setTimeout(() => {
+      deactivateAssistant();
+    }, 8000);
+  };
+
+  const deactivateAssistant = () => {
+    console.log("💤 Assistant Sleeping");
+
+    setIsMicActive(false);
+
+    recognitionRef.current?.stop();
+  };
+
+  const startCommandRecognition = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[event.results.length - 1][0].transcript;
+
+      console.log("🗣 Command:", transcript);
+    };
+
+    recognition.start();
+  };
 
   return (
     <div
@@ -448,19 +647,18 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
           cy="200"
           initial={{ r: 137 }}
           fill="transparent"
-          stroke="#3b82f6"
-          strokeWidth="2.8"
+          stroke={
+            isMicActive ? (isUserSpeaking ? "#ef4444" : "#f87171") : "#3b82f6"
+          }
+          strokeWidth="3"
           strokeLinecap="round"
           filter="url(#advancedGlow)"
           animate={{
-            strokeWidth: isSpeaking ? 3.2 + (intensity || 0) * 2.5 : 2.8,
-            opacity: isSpeaking ? 0.92 + (intensity || 0) * 0.08 : 0.75,
-            r: isSpeaking ? 137 + (intensity || 0) * 6 : 137,
+            strokeWidth: isUserSpeaking ? 4 : 3,
+            opacity: isUserSpeaking ? 1 : 0.8,
+            r: 137,
           }}
-          transition={{
-            duration: 0.12,
-            ease: "easeOut",
-          }}
+          transition={{ duration: 0.2 }}
         />
 
         {/* Middle Sky Blue Ring */}
@@ -536,8 +734,8 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
           fill="#3b82f6"
           filter="url(#advancedGlow)"
           animate={{
-            r: isSpeaking ? 4 + (intensity || 0) * 3 : 4,
-            opacity: isSpeaking ? [0.75, 1, 0.75] : 0.85,
+            r: isUserSpeaking ? 6 : 4,
+            opacity: isUserSpeaking ? [0.8, 1, 0.8] : 0.85,
           }}
           transition={{
             duration: 0.45,
@@ -586,7 +784,7 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
           rotate: 360,
         }}
         transition={{
-          duration: 25,
+          duration: isUserSpeaking ? 8 : 25,
           repeat: Infinity,
           ease: "linear",
         }}
