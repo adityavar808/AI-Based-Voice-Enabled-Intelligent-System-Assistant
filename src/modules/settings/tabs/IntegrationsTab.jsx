@@ -1,6 +1,6 @@
 import SettingsCard from "../components/SettingsCard";
 
-export default function IntegrationsTab() {
+export default function IntegrationsTab({ settings, setSettings }) {
   return (
     <>
       <SettingsCard

@@ -1,15 +1,34 @@
 import SettingsCard from "../components/SettingsCard";
 
-export default function VoiceTab() {
+export default function VoiceTab({ settings, setSettings }) {
+  const { sensitivity } = settings.voice;
+
   return (
     <>
       <SettingsCard
-        title="Voice Settings"
-        description="Control voice assistant behavior."
+        title="Voice Sensitivity"
+        description="Adjust microphone sensitivity."
       >
-        <div className="text-white/80">
-          Voice sensitivity: Default
-        </div>
+        <label className="block text-sm mb-2 text-white/80">
+          Sensitivity: {sensitivity}
+        </label>
+
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={sensitivity}
+          onChange={(e) =>
+            setSettings((prev) => ({
+              ...prev,
+              voice: {
+                ...prev.voice,
+                sensitivity: Number(e.target.value),
+              },
+            }))
+          }
+          className="w-full"
+        />
       </SettingsCard>
     </>
   );
