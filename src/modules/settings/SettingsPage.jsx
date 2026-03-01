@@ -1,7 +1,22 @@
+import { useState } from "react";
+import SettingsSidebar from "./components/SettingsSidebar";
 import AIModelTab from "./tabs/AIModelTab";
 import SecurityTab from "./tabs/SecurityTab";
-import MemoryTab from "./tabs/MemoryTab";
-import IntegrationsTab from "./tabs/IntegrationsTab";
-import VoiceTab from "./tabs/VoiceTab";
-import AppearanceTab from "./tabs/AppearanceTab";
-import DeveloperTab from "./tabs/DeveloperTab";
+
+export default function SettingsPage({ onClose }) {
+  const [activeTab, setActiveTab] = useState("ai-model");
+
+  return (
+    <div className="w-full h-full flex bg-black text-white">
+      <SettingsSidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
+
+      <div className="flex-1 p-8">
+        {activeTab === "ai-model" && <AIModelTab />}
+        {activeTab === "security" && <SecurityTab />}
+      </div>
+    </div>
+  );
+}

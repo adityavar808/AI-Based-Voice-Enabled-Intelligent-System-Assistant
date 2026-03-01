@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import CinematicBoot from "../components/CinematicBoot";
 import StartScreen from "../components/StartScreen";
 
-const Home = ({ start, setStart }) => {
+const Home = ({ start, setStart, openSettings }) =>  {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [audioError, setAudioError] = useState(null);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -44,33 +44,41 @@ const Home = ({ start, setStart }) => {
   }, [start, audioEnabled]);
 
   return (
-    <>
-      <audio ref={audioRef} src="/zenix_voice.mp3" preload="auto" />
+  <div className="w-full h-full relative">
+    <audio ref={audioRef} src="/zenix_voice.mp3" preload="auto" />
 
-      <AnimatePresence mode="wait">
-        {!start ? (
-          <StartScreen
-            setStart={setStart}
-            audioError={audioError}
+    {/* Settings Button */}
+    <button
+      onClick={openSettings}
+      className="absolute top-6 right-6 z-50 text-xs bg-white/10 px-4 py-2 rounded-md hover:bg-white/20 transition"
+    >
+      Settings
+    </button>
+
+    <AnimatePresence mode="wait">
+      {!start ? (
+        <StartScreen
+          setStart={setStart}
+          audioError={audioError}
+        />
+      ) : (
+        <motion.div
+          key="boot"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="w-full h-full"
+        >
+          <CinematicBoot
+            isSpeaking={isSpeaking}
+            audioLevel={audioLevel}
+            audioRef={audioRef}
           />
-        ) : (
-          <motion.div
-            key="boot"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="w-full h-full"
-          >
-            <CinematicBoot
-              isSpeaking={isSpeaking}
-              audioLevel={audioLevel}
-              audioRef={audioRef}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
-  );
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+);
 };
 
 export default Home;
