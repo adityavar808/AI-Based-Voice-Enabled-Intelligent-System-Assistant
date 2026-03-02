@@ -161,7 +161,7 @@ export default function SettingsPage({ onClose }) {
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="bg-white text-black px-4 py-2 rounded-md text-sm flex items-center gap-2"
+                className="bg-blue-500 text-white px-4 py-2 rounded-md text-sm flex items-center gap-2 shadow-[0_0_10px_#3b82f6] hover:bg-blue-600 transition"
               >
                 {isSaving ? "Saving..." : "Save Changes"}
               </button>

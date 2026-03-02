@@ -20,8 +20,8 @@ export default function SettingsSidebar({ activeTab, setActiveTab }) {
             onClick={() => setActiveTab(tab.id)}
             className={`text-left px-4 py-3 rounded-lg transition-all ${
               activeTab === tab.id
-                ? "bg-white/10 text-white"
-                : "text-white/60 hover:bg-white/5 hover:text-white"
+                ? "bg-blue-500/20 text-blue-400 shadow-[0_0_10px_#3b82f6]"
+                : "text-white/60 hover:bg-blue-500/10 hover:text-blue-400"
             }`}
           >
             {tab.label}
