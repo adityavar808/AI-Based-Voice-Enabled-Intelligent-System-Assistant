@@ -4,7 +4,8 @@ import SettingsPage from "./modules/settings/SettingsPage";
 
 function App() {
   const [start, setStart] = useState(false);
-  const [view, setView] = useState("home"); // home | settings
+  const [view, setView] = useState("home");
+  const [isOrbReady, setIsOrbReady] = useState(false);
 
   return (
     <div className="w-screen h-screen bg-black overflow-hidden">
@@ -13,6 +14,8 @@ function App() {
           start={start}
           setStart={setStart}
           openSettings={() => setView("settings")}
+          isOrbReady={isOrbReady}
+          setIsOrbReady={setIsOrbReady}
         />
       )}
 
