@@ -637,8 +637,8 @@ const styles = {
 
   // Transcript
   transcript: {
-    minHeight: "80px",
-    maxHeight: "160px",
+    minHeight: "160px",
+    maxHeight: "calc(100vh - 260px)",
     overflowY: "auto",
     padding: "14px 22px 10px",
     display: "flex",
