@@ -31,15 +31,25 @@ export default function SettingsPage({ onClose }) {
     []
   );
 
-  // ✅ Safe Load From localStorage
   const [settings, setSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem("zenix-settings");
-      return saved ? JSON.parse(saved) : defaultSettings;
-    } catch {
-      return defaultSettings;
-    }
-  });
+  try {
+    const saved = localStorage.getItem("zenix-settings");
+    if (!saved) return defaultSettings;
+
+    const parsed = JSON.parse(saved);
+
+    return {
+      ...defaultSettings,
+      ...parsed,
+      integrations: {
+        ...defaultSettings.integrations,
+        ...(parsed.integrations || {}),
+      },
+    };
+  } catch {
+    return defaultSettings;
+  }
+});
 
   const [savedSettings, setSavedSettings] = useState(settings);
   const [isSaving, setIsSaving] = useState(false);
