@@ -1,4 +1,5 @@
 import SettingsCard from "../components/SettingsCard";
+import ToggleSwitch from "../components/ToggleSwitch";
 
 export default function DeveloperTab({ settings, setSettings }) {
   const { debug } = settings.developer;
@@ -9,9 +10,10 @@ export default function DeveloperTab({ settings, setSettings }) {
         title="Developer Tools"
         description="Enable debugging options."
       >
-        <label className="flex items-center gap-3 text-white/80">
-          <input
-            type="checkbox"
+        <div className="flex items-center justify-between text-white/80">
+          <span>Debug Mode</span>
+
+          <ToggleSwitch
             checked={debug}
             onChange={() =>
               setSettings((prev) => ({
@@ -23,8 +25,7 @@ export default function DeveloperTab({ settings, setSettings }) {
               }))
             }
           />
-          Debug Mode
-        </label>
+        </div>
       </SettingsCard>
     </>
   );
