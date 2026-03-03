@@ -146,45 +146,39 @@ const Home = ({
   }, [stopListening, startListening]);
 
   // ─── Boot sequence ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!start) {
-      setIsOrbReady(false);
-      return;
+useEffect(() => {
+  if (!start) {
+    setIsOrbReady(false);
+    return;
+  }
+
+  const timers = [];
+
+  const t = (fn, ms) => {
+    const id = setTimeout(fn, ms);
+    timers.push(id);
+  };
+
+  // Boot complete → start listening
+  t(() => {
+    setBootComplete(true);
+    setConversationStatus("listening");
+    startListening();
+  }, BOOT_DURATION_MS);
+
+  // Play intro audio safely
+  t(() => {
+    if (audioEnabled) {
+      playAudioSafely();
     }
+  }, BOOT_DURATION_MS + 300);
 
-    const timer = setTimeout(() => {
-      if (audioEnabled && audioRef.current) {
-        setIsSpeaking(true);
-        audioRef.current.play().catch(() => {
-          setAudioError("Click anywhere to enable audio");
-          setIsSpeaking(false);
-        });
-      }
-    }, 6500);
-
-    return () => clearTimeout(timer);
-  }, [start, audioEnabled, setIsOrbReady]);
-    const timers = [];
-    const t = (fn, ms) => { const id = setTimeout(fn, ms); timers.push(id); };
-
-    // Boot complete → start listening
-    t(() => {
-      setBootComplete(true);
-      setConversationStatus("listening");
-      startListening();
-    }, BOOT_DURATION_MS);
-
-    // Play intro audio (mic is muted automatically inside playAudioSafely)
-    t(() => {
-      if (audioEnabled) playAudioSafely();
-    }, BOOT_DURATION_MS + 300);
-
-    return () => {
-      timers.forEach(clearTimeout);
-      stopListening();
-    };
-  }, [start, audioEnabled]);  // eslint-disable-line
-
+  return () => {
+    timers.forEach(clearTimeout);
+    stopListening();
+  };
+}, [start, audioEnabled, startListening, playAudioSafely, stopListening, setIsOrbReady]);
+  
   // ─── Cleanup on exit ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!start) {
