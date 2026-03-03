@@ -227,12 +227,6 @@ useEffect(() => {
               justifyContent: "center",
             }}
           >
-            <CinematicBoot
-              isSpeaking={isSpeaking}
-              audioLevel={audioLevel}
-              audioRef={audioRef}
-              setIsOrbReady={setIsOrbReady}
-            />
             {/* ── Left: Orb ── */}
             <motion.div
               animate={
