@@ -6,15 +6,20 @@ import ConversationBox from "../components/ConversationBox";
 
 const BOOT_DURATION_MS = 6500;
 
-const Home = ({ start, setStart }) => {
-  const [audioEnabled] = useState(true);
-  const [audioError, setAudioError]     = useState(null);
-  const [audioLevel]                     = useState(0);
-  const [isSpeaking, setIsSpeaking]     = useState(false);
+const Home = ({
+  start,
+  setStart,
+  openSettings,
+  isOrbReady,
+  setIsOrbReady,
+}) => {
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [audioError, setAudioError] = useState(null);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const audioRef = useRef(null);
   const [bootComplete, setBootComplete] = useState(false);
   const [conversationStatus, setConversationStatus] = useState("idle");
-
-  const audioRef       = useRef(null);
   const recognitionRef = useRef(null);   // holds the SpeechRecognition instance
   const isPlayingRef   = useRef(false);  // true while Zenix audio is playing
 
@@ -142,8 +147,23 @@ const Home = ({ start, setStart }) => {
 
   // ─── Boot sequence ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!start) return;
+    if (!start) {
+      setIsOrbReady(false);
+      return;
+    }
 
+    const timer = setTimeout(() => {
+      if (audioEnabled && audioRef.current) {
+        setIsSpeaking(true);
+        audioRef.current.play().catch(() => {
+          setAudioError("Click anywhere to enable audio");
+          setIsSpeaking(false);
+        });
+      }
+    }, 6500);
+
+    return () => clearTimeout(timer);
+  }, [start, audioEnabled, setIsOrbReady]);
     const timers = [];
     const t = (fn, ms) => { const id = setTimeout(fn, ms); timers.push(id); };
 
@@ -177,8 +197,21 @@ const Home = ({ start, setStart }) => {
   }, [start, stopListening]);
 
   return (
-    <>
+    <div className="w-full h-full relative">
       <audio ref={audioRef} src="/zenix_voice.mp3" preload="auto" />
+
+      {/* Settings Button */}
+      <button
+        onClick={isOrbReady ? openSettings : undefined}
+        disabled={!isOrbReady}
+        className={`absolute top-6 right-6 z-50 text-xs px-4 py-2 rounded-md transition-all ${
+          isOrbReady
+            ? "bg-blue-500/20 text-blue-400 shadow-[0_0_10px_#3b82f6] hover:bg-blue-500/30"
+            : "bg-white/10 text-white/40 cursor-not-allowed"
+        }`}
+      >
+        Settings
+      </button>
 
       <AnimatePresence mode="wait">
         {!start ? (
@@ -200,6 +233,12 @@ const Home = ({ start, setStart }) => {
               justifyContent: "center",
             }}
           >
+            <CinematicBoot
+              isSpeaking={isSpeaking}
+              audioLevel={audioLevel}
+              audioRef={audioRef}
+              setIsOrbReady={setIsOrbReady}
+            />
             {/* ── Left: Orb ── */}
             <motion.div
               animate={
@@ -260,7 +299,7 @@ const Home = ({ start, setStart }) => {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 };
 

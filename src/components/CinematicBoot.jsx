@@ -1,10 +1,14 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import SystemLogs from "./SystemLogs";
 import OrbCore from "./OrbCore";
-import { AnimatePresence } from "framer-motion";
 
-function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
+function CinematicBoot({
+  isSpeaking,
+  audioLevel,
+  audioRef,
+  setIsOrbReady,
+}) {
   const [bootPhase, setBootPhase] = useState("initializing");
 
   useEffect(() => {
@@ -17,14 +21,18 @@ function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
     };
   }, []);
 
+  // 🔥 Notify when Orb becomes active
+  useEffect(() => {
+    if (bootPhase === "ready" && setIsOrbReady) {
+      setIsOrbReady(true);
+    }
+  }, [bootPhase, setIsOrbReady]);
+
   if (bootPhase === "initializing" || bootPhase === "booting") {
     return (
       <div className="relative w-full h-screen bg-black overflow-hidden text-cyan-400">
         {/* Background Glow */}
-        <div
-          className="absolute inset-0 
-          bg-[radial-gradient(circle_at_center,#001f2f_0%,#000000_70%)]"
-        />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#001f2f_0%,#000000_70%)]" />
 
         {/* Subtle Moving Glow */}
         <motion.div
@@ -37,9 +45,7 @@ function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute inset-0 
-            bg-[radial-gradient(circle_at_40%_50%,rgba(0,247,255,0.25),transparent_60%)]
-            blur-3xl"
+          className="absolute inset-0 bg-[radial-gradient(circle_at_40%_50%,rgba(0,247,255,0.25),transparent_60%)] blur-3xl"
         />
 
         {/* Grid Overlay */}
@@ -52,7 +58,6 @@ function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
 
         {/* Main Layout */}
         <div className="relative w-full h-full flex items-center justify-center gap-16 px-10">
-          {/* LEFT PANEL — SYSTEM LOGS */}
           <motion.div
             initial={{ opacity: 0, x: -100 }}
             animate={{ opacity: 1, x: 0 }}
@@ -62,7 +67,6 @@ function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
             <SystemLogs />
           </motion.div>
 
-          {/* RIGHT PANEL — SYSTEM MONITOR */}
           <motion.div
             initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
@@ -77,7 +81,6 @@ function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
               SYSTEM MONITOR
             </h2>
 
-            {/* CPU */}
             <div className="space-y-4 text-sm font-mono">
               <div>
                 <div className="flex justify-between">
@@ -94,7 +97,6 @@ function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
                 </div>
               </div>
 
-              {/* Memory */}
               <div>
                 <div className="flex justify-between">
                   <span>Memory</span>
@@ -110,40 +112,19 @@ function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
                 </div>
               </div>
 
-              {/* Network */}
               <div className="flex justify-between pt-4 border-t border-cyan-400/20">
                 <span>Network</span>
                 <span className="text-emerald-400">SECURE</span>
               </div>
             </div>
-
-            {/* Animated Bars */}
-            <div className="flex gap-1 items-end h-16 mt-8">
-              {[...Array(12)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  animate={{
-                    height: ["30%", "100%", "40%", "80%", "50%"],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    delay: i * 0.1,
-                  }}
-                  className="flex-1 bg-gradient-to-t from-cyan-400/60 to-blue-400 rounded-sm"
-                />
-              ))}
-            </div>
           </motion.div>
         </div>
 
-        {/* Bottom Boot Status */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 2 }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 
-            text-sm tracking-widest text-cyan-400/60 font-mono"
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 text-sm tracking-widest text-cyan-400/60 font-mono"
         >
           ZENIX AI BOOTING...
         </motion.div>
@@ -151,6 +132,7 @@ function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
     );
   }
 
+  // 🔥 Orb Phase
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -161,7 +143,11 @@ function CinematicBoot({ isSpeaking, audioLevel, audioRef }) {
         transition={{ duration: 0.8 }}
         className="w-full h-full bg-black flex items-center justify-center"
       >
-        <OrbCore isSpeaking={isSpeaking} audioLevel={audioLevel} audioRef={audioRef} />
+        <OrbCore
+          isSpeaking={isSpeaking}
+          audioLevel={audioLevel}
+          audioRef={audioRef}
+        />
       </motion.div>
     </AnimatePresence>
   );
