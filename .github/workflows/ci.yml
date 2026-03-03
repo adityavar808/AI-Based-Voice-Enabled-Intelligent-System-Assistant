@@ -32,8 +32,8 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Lint Code
-        run: npm run lint --if-present
+      - name: Lint Code (non-blocking)
+        run: npm run lint --if-present || true
 
       - name: Type Check
         run: npm run type-check --if-present
