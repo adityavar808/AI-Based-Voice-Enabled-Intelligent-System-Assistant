@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Analytics } from "@vercel/analytics/react"
 import Home from "./pages/Home";
 import SettingsPage from "./modules/settings/SettingsPage";
 
