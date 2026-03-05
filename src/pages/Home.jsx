@@ -183,54 +183,18 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
       <div
         style={{
           position: "absolute",
-          top: "9px",
-          right: "18px",
+          top: "18px",
+          left: "50%",
+          transform: "translateX(-50%)",
           zIndex: 100,
           display: "flex",
           alignItems: "center",
           gap: "14px",
         }}
       >
-        {/* USER BUTTON */}
-        <button
-          style={{
-            width: "38px",
-            height: "38px",
-            borderRadius: "50%",
-            border: "1px solid rgba(96,165,250,0.25)",
-            background: "rgba(10,20,35,0.4)",
-            backdropFilter: "blur(12px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            boxShadow: "0 0 12px rgba(59,130,246,0.35)",
-            transition: "all 0.25s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = "0 0 22px rgba(59,130,246,0.6)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = "0 0 12px rgba(59,130,246,0.35)";
-          }}
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#60a5fa"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ filter: "drop-shadow(0 0 6px #3b82f6)" }}
-          >
-            <path d="M20 21a8 8 0 0 0-16 0" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-        </button>
 
         {/* SETTINGS BUTTON */}
+        {bootComplete && (
         <button
           onClick={isOrbReady ? openSettings : undefined}
           disabled={!isOrbReady}
@@ -298,6 +262,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
             />
           </svg>
         </button>
+        )}
       </div>
 
       <AnimatePresence mode="wait">
@@ -313,7 +278,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
               width: "100%",
               height: "100%",
               display: "flex",
-              alignItems: "center",
+              alignItems: "stretch",
               justifyContent: "space-between",
               padding: "0 40px",
               boxSizing: "border-box",
@@ -329,7 +294,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
                   transition={{ duration: 0.5 }}
                   style={{
                     width: "300px",
-                    height: "85vh",
+                    height: "100%",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "center",
@@ -367,7 +332,8 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
                   transition={{ duration: 0.5 }}
                   style={{
                     width: "370px",
-                    height: "85vh",
+                    height: "95%",
+                    paddingTop : "25px",
                     display: "flex",
                     flexDirection: "column",
                   }}
