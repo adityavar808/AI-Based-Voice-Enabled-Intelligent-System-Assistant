@@ -17,3 +17,11 @@ app.include_router(chat.router)
 @app.get("/")
 def home():
     return {"message": "ZENIX FastAPI backend running"}
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok",
+        "service": "zenix-backend",
+        "version": "1.0.0"
+    }
