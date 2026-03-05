@@ -13,7 +13,6 @@ import DeveloperTab from "./tabs/DeveloperTab";
 export default function SettingsPage({ onClose }) {
   const [activeTab, setActiveTab] = useState("ai-model");
 
-  // ✅ Default Settings Structure
   const defaultSettings = useMemo(
     () => ({
       ai: { model: "zenix-core", temperature: 0.7 },
@@ -32,24 +31,24 @@ export default function SettingsPage({ onClose }) {
   );
 
   const [settings, setSettings] = useState(() => {
-  try {
-    const saved = localStorage.getItem("zenix-settings");
-    if (!saved) return defaultSettings;
+    try {
+      const saved = localStorage.getItem("zenix-settings");
+      if (!saved) return defaultSettings;
 
-    const parsed = JSON.parse(saved);
+      const parsed = JSON.parse(saved);
 
-    return {
-      ...defaultSettings,
-      ...parsed,
-      integrations: {
-        ...defaultSettings.integrations,
-        ...(parsed.integrations || {}),
-      },
-    };
-  } catch {
-    return defaultSettings;
-  }
-});
+      return {
+        ...defaultSettings,
+        ...parsed,
+        integrations: {
+          ...defaultSettings.integrations,
+          ...(parsed.integrations || {}),
+        },
+      };
+    } catch {
+      return defaultSettings;
+    }
+  });
 
   const [savedSettings, setSavedSettings] = useState(settings);
   const [isSaving, setIsSaving] = useState(false);
@@ -58,7 +57,6 @@ export default function SettingsPage({ onClose }) {
   const isDirty =
     JSON.stringify(settings) !== JSON.stringify(savedSettings);
 
-  // ✅ Save Handler
   const handleSave = async () => {
     setIsSaving(true);
 
@@ -73,12 +71,10 @@ export default function SettingsPage({ onClose }) {
     setTimeout(() => setShowToast(false), 2500);
   };
 
-  // ✅ Cancel Handler
   const handleCancel = () => {
     setSettings(savedSettings);
   };
 
-  // ✅ Reset to Default (used by Security Danger Zone)
   const resetToDefault = () => {
     setSettings(defaultSettings);
   };
@@ -111,66 +107,77 @@ export default function SettingsPage({ onClose }) {
   };
 
   return (
-    <div className="w-full h-screen flex bg-black text-white relative">
-      {/* Sidebar */}
-      <SettingsSidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-      />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col">
-        <div className="h-16 flex items-center justify-between px-8 border-b border-white/10">
-          <h1 className="text-lg font-semibold">Jarvis Settings</h1>
+      {/* Popup Panel */}
+      <div className="w-[90%] max-w-6xl h-[80%] flex bg-black/80 border border-cyan-400/30 rounded-2xl shadow-[0_0_40px_rgba(0,247,255,0.25)] overflow-hidden relative">
 
-          <button
-            onClick={onClose}
-            className="text-sm text-white/60 hover:text-white transition"
-          >
-            Close
-          </button>
-        </div>
+        {/* Sidebar */}
+        <SettingsSidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
 
-        <div className="flex-1 overflow-y-auto p-8">
-          {renderActiveTab()}
+        {/* Content */}
+        <div className="flex-1 flex flex-col">
+
+          {/* Header */}
+          <div className="h-16 flex items-center justify-between px-8 border-b border-cyan-400/20">
+            <h1 className="text-lg font-semibold text-cyan-400">
+              ZENIX Settings
+            </h1>
+
+            <button
+              onClick={onClose}
+              className="text-sm text-cyan-400 hover:text-cyan-300 transition"
+            >
+              Close
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-y-auto p-8">
+            {renderActiveTab()}
+          </div>
+
+          {/* Save Bar (inside popup now) */}
+          <AnimatePresence>
+            {isDirty && (
+              <motion.div
+                initial={{ y: 80 }}
+                animate={{ y: 0 }}
+                exit={{ y: 80 }}
+                transition={{ duration: 0.25 }}
+                className="border-t border-cyan-400/20 px-8 py-4 flex justify-between items-center bg-black/70"
+              >
+                <span className="text-sm text-white/70">
+                  You have unsaved changes
+                </span>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleCancel}
+                    className="text-sm text-white/60 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="bg-cyan-500 text-black px-4 py-2 rounded-md text-sm flex items-center gap-2 shadow-[0_0_10px_#22d3ee] hover:bg-cyan-400 transition"
+                  >
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
         </div>
       </div>
 
-      {/* 🔥 Sticky Save Bar */}
-      <AnimatePresence>
-        {isDirty && (
-          <motion.div
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
-            transition={{ duration: 0.3 }}
-            className="fixed bottom-0 left-0 w-full bg-black border-t border-white/10 px-8 py-4 flex justify-between items-center"
-          >
-            <span className="text-sm text-white/70">
-              You have unsaved changes
-            </span>
-
-            <div className="flex gap-4">
-              <button
-                onClick={handleCancel}
-                className="text-sm text-white/60 hover:text-white"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="bg-blue-500 text-white px-4 py-2 rounded-md text-sm flex items-center gap-2 shadow-[0_0_10px_#3b82f6] hover:bg-blue-600 transition"
-              >
-                {isSaving ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 🔔 Toast */}
+      {/* Toast */}
       <AnimatePresence>
         {showToast && (
           <motion.div
@@ -178,12 +185,13 @@ export default function SettingsPage({ onClose }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="fixed top-6 right-6 bg-white text-black px-4 py-2 rounded-md text-sm shadow-lg"
+            className="fixed top-6 right-6 bg-cyan-400 text-black px-4 py-2 rounded-md text-sm shadow-lg"
           >
             Settings saved successfully
           </motion.div>
         )}
       </AnimatePresence>
+
     </div>
   );
 }
