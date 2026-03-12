@@ -45,6 +45,20 @@ const DEMO = [
   },
 ];
 
+function getChatEndpoint() {
+  const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
+
+  if (!configuredBaseUrl) {
+    return "/api/chat";
+  }
+
+  try {
+    return new URL("/api/chat", configuredBaseUrl).toString();
+  } catch {
+    return "/api/chat";
+  }
+}
+
 function useStreamText({ text, active, speed = 18 }) {
   const [displayed, setDisplayed] = useState("");
   const [done, setDone] = useState(false);
@@ -289,6 +303,7 @@ export default function ConversationBox({
   setStatus: setExternalStatus,
   entries: externalEntries,
 }) {
+  const chatEndpoint = getChatEndpoint();
   const [internalStatus, setInternalStatus] = useState("idle");
   const [internalEntries, setInternalEntries] = useState([]);
   const [demoRunning, setDemoRunning] = useState(false);
@@ -304,7 +319,7 @@ export default function ConversationBox({
     try {
       setStatus("thinking");
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/chat`, {
+      const res = await fetch(chatEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -313,6 +328,10 @@ export default function ConversationBox({
           message: message,
         }),
       });
+
+      if (!res.ok) {
+        throw new Error(`Chat API returned ${res.status}`);
+      }
 
       const data = await res.json();
 
@@ -333,9 +352,24 @@ export default function ConversationBox({
         },
         data.reply.length * 16 + 600,
       );
-    } catch (err) {
-      console.error(err);
-      setStatus("idle");
+    } catch {
+      const fallbackReply = `Backend unavailable. Start the API server for ${chatEndpoint}.`;
+
+      setStatus("responding");
+      setInternalEntries((prev) => [
+        ...prev,
+        {
+          type: "assistant",
+          text: fallbackReply,
+          time: now(),
+        },
+      ]);
+
+      const timerId = setTimeout(() => {
+        setStatus("listening");
+      }, fallbackReply.length * 16 + 600);
+
+      timers.current.push(timerId);
     }
   };
 

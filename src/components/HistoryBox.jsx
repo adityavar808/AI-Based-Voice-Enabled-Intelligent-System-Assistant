@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 
+const MotionDiv = motion.div;
+
 const HistoryBox = () => {
   const [history] = useState([
     {
@@ -73,7 +75,7 @@ const HistoryBox = () => {
             </div>
 
             {group.items.map((item) => (
-              <motion.div
+              <MotionDiv
                 key={item.id}
                 whileHover={{ scale: 1.03 }}
                 transition={{ duration: 0.15 }}
@@ -103,7 +105,7 @@ const HistoryBox = () => {
                 />
 
                 {item.text}
-              </motion.div>
+              </MotionDiv>
             ))}
           </div>
         ))}
