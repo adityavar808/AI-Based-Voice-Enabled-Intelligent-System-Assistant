@@ -307,6 +307,7 @@ export default function ConversationBox({
   const [internalStatus, setInternalStatus] = useState("idle");
   const [internalEntries, setInternalEntries] = useState([]);
   const [demoRunning, setDemoRunning] = useState(false);
+  const [draftMessage, setDraftMessage] = useState("");
   const scrollRef = useRef(null);
   const timers = useRef([]);
 
@@ -346,12 +347,14 @@ export default function ConversationBox({
         },
       ]);
 
-      setTimeout(
+      const timerId = setTimeout(
         () => {
           setStatus("listening");
         },
         data.reply.length * 16 + 600,
       );
+
+      timers.current.push(timerId);
     } catch {
       const fallbackReply = `Backend unavailable. Start the API server for ${chatEndpoint}.`;
 
@@ -374,16 +377,23 @@ export default function ConversationBox({
   };
 
   const handleUserMessage = (text) => {
+    const nextText = text.trim();
+
+    if (!nextText) return;
+
+    clearTimers();
+    setDemoRunning(false);
+
     setInternalEntries((prev) => [
       ...prev,
       {
         type: "user",
-        text: text,
+        text: nextText,
         time: now(),
       },
     ]);
 
-    sendMessageToBackend(text);
+    sendMessageToBackend(nextText);
   };
 
   useEffect(() => {
@@ -402,6 +412,8 @@ export default function ConversationBox({
     const id = setTimeout(fn, ms);
     timers.current.push(id);
   }, []);
+
+  useEffect(() => () => clearTimers(), []);
 
   const runDemo = useCallback(() => {
     if (demoRunning || externalEntries !== undefined) return;
@@ -445,7 +457,19 @@ export default function ConversationBox({
     setInternalEntries([]);
     setInternalStatus("idle");
     setDemoRunning(false);
+    setDraftMessage("");
   };
+
+  const handleComposerSubmit = (event) => {
+    event.preventDefault();
+    const nextText = draftMessage.trim();
+
+    if (!nextText) return;
+
+    setDraftMessage("");
+    handleUserMessage(nextText);
+  };
+
   const cfg = STATUS_CFG[status] || STATUS_CFG.idle;
 
   return (
@@ -514,46 +538,62 @@ export default function ConversationBox({
 
       {externalEntries === undefined && (
         <div style={S.demoBar}>
-          <span style={S.demoLabel}>DEMO MODE</span>
-          <div style={S.demoButtons}>
+          <div style={S.demoHeader}>
+            <span style={S.demoLabel}>CHAT MODE</span>
+            <div style={S.demoButtons}>
+              <button
+                onClick={resetDemo}
+                style={S.btnGhost}
+                onMouseEnter={(e) =>
+                  (e.target.style.borderColor = "rgba(255,255,255,0.25)")
+                }
+                onMouseLeave={(e) =>
+                  (e.target.style.borderColor = "rgba(255,255,255,0.1)")
+                }
+              >
+                RESET
+              </button>
+              <button
+                onClick={runDemo}
+                disabled={demoRunning}
+                style={{ ...S.btnPrimary, opacity: demoRunning ? 0.45 : 1 }}
+                onMouseEnter={(e) => {
+                  if (!demoRunning) e.target.style.opacity = "0.85";
+                }}
+                onMouseLeave={(e) => {
+                  if (!demoRunning) e.target.style.opacity = "1";
+                }}
+              >
+                {demoRunning ? "RUNNING" : "RUN DEMO"}
+              </button>
+            </div>
+          </div>
+          <form style={S.composerRow} onSubmit={handleComposerSubmit}>
+            <input
+              type="text"
+              value={draftMessage}
+              onChange={(event) => setDraftMessage(event.target.value)}
+              placeholder="Type a message for Zenix..."
+              style={S.composerInput}
+            />
             <button
-              onClick={resetDemo}
-              style={S.btnGhost}
-              onMouseEnter={(e) =>
-                (e.target.style.borderColor = "rgba(255,255,255,0.25)")
-              }
-              onMouseLeave={(e) =>
-                (e.target.style.borderColor = "rgba(255,255,255,0.1)")
-              }
-            >
-              RESET
-            </button>
-             <button
-              onClick={() => handleUserMessage("Hello Zenix")}
-              style={S.btnGhost}
-              onMouseEnter={(e) =>
-                (e.target.style.borderColor = "rgba(255,255,255,0.25)")
-              }
-              onMouseLeave={(e) =>
-                (e.target.style.borderColor = "rgba(255,255,255,0.1)")
-              }
-            >
-              TEST API
-            </button>
-            <button
-              onClick={runDemo}
-              disabled={demoRunning}
-              style={{ ...S.btnPrimary, opacity: demoRunning ? 0.45 : 1 }}
+              type="submit"
+              disabled={!draftMessage.trim()}
+              style={{
+                ...S.btnPrimary,
+                minWidth: "84px",
+                opacity: draftMessage.trim() ? 1 : 0.45,
+              }}
               onMouseEnter={(e) => {
-                if (!demoRunning) e.target.style.opacity = "0.85";
+                if (draftMessage.trim()) e.target.style.opacity = "0.85";
               }}
               onMouseLeave={(e) => {
-                if (!demoRunning) e.target.style.opacity = "1";
+                if (draftMessage.trim()) e.target.style.opacity = "1";
               }}
             >
-              {demoRunning ? "RUNNING" : "RUN DEMO"}
+              SEND
             </button>
-          </div>
+          </form>
         </div>
       )}
     </div>
@@ -799,11 +839,18 @@ const S = {
   demoBar: {
     flexShrink: 0,
     display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: "10px",
     padding: "10px 18px",
     borderTop: "1px solid rgba(255,255,255,0.04)",
     background: "rgba(0,0,0,0.3)",
+  },
+  demoHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
   },
   demoLabel: {
     fontSize: "9px",
@@ -812,6 +859,24 @@ const S = {
     fontWeight: 500,
   },
   demoButtons: { display: "flex", gap: "8px" },
+  composerRow: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  },
+  composerInput: {
+    flex: 1,
+    minWidth: 0,
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    color: "#e2e8f0",
+    fontSize: "12px",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    outline: "none",
+    fontFamily: "'IBM Plex Mono',monospace",
+    boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.02)",
+  },
   btnGhost: {
     background: "transparent",
     border: "1px solid rgba(255,255,255,0.1)",
