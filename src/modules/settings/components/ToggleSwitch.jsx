@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
 
+const MotionDiv = motion.div;
+
 export default function ToggleSwitch({ checked, onChange }) {
   return (
     <div
@@ -10,7 +12,7 @@ export default function ToggleSwitch({ checked, onChange }) {
           : "bg-white/10"
       }`}
     >
-      <motion.div
+      <MotionDiv
         layout
         transition={{ type: "spring", stiffness: 500, damping: 30 }}
         className={`w-4 h-4 rounded-full ${

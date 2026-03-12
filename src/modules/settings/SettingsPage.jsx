@@ -10,6 +10,8 @@ import VoiceTab from "./tabs/VoiceTab";
 import AppearanceTab from "./tabs/AppearanceTab";
 import DeveloperTab from "./tabs/DeveloperTab";
 
+const MotionDiv = motion.div;
+
 export default function SettingsPage({ onClose }) {
   const [activeTab, setActiveTab] = useState("ai-model");
 
@@ -143,7 +145,7 @@ export default function SettingsPage({ onClose }) {
           {/* Save Bar (inside popup now) */}
           <AnimatePresence>
             {isDirty && (
-              <motion.div
+              <MotionDiv
                 initial={{ y: 80 }}
                 animate={{ y: 0 }}
                 exit={{ y: 80 }}
@@ -170,7 +172,7 @@ export default function SettingsPage({ onClose }) {
                     {isSaving ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
-              </motion.div>
+              </MotionDiv>
             )}
           </AnimatePresence>
 
@@ -180,7 +182,7 @@ export default function SettingsPage({ onClose }) {
       {/* Toast */}
       <AnimatePresence>
         {showToast && (
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -188,7 +190,7 @@ export default function SettingsPage({ onClose }) {
             className="fixed top-6 right-6 bg-cyan-400 text-black px-4 py-2 rounded-md text-sm shadow-lg"
           >
             Settings saved successfully
-          </motion.div>
+          </MotionDiv>
         )}
       </AnimatePresence>
 
