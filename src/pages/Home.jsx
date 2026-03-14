@@ -15,6 +15,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
   const [audioError, setAudioError] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [bootComplete, setBootComplete] = useState(false);
+  const [showConversation, setShowConversation] = useState(false); // ← true only after intro audio ends
   const [conversationStatus, setConversationStatus] = useState("idle");
 
   const audioRef = useRef(null);
@@ -191,6 +192,9 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
             setIsSpeaking(false);
             setConversationStatus("listening");
 
+            // ✅ Intro audio finished — reveal ConversationBox now
+            setShowConversation(true);
+
             if (onEnded) {
               onEnded();
             }
@@ -205,6 +209,10 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
           suppressRestartRef.current = false;
           setIsSpeaking(false);
           setConversationStatus("listening");
+
+          // ✅ Audio failed — still show ConversationBox
+          setShowConversation(true);
+
           queueListeningRestart(400);
         });
     },
@@ -230,7 +238,9 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
 
     schedule(() => {
       if (audioEnabled) {
-        playAudioSafely();
+        playAudioSafely(); // ← ConversationBox shown when audio ends
+      } else {
+        setShowConversation(true); // ← No audio: show immediately after boot
       }
     }, BOOT_DURATION_MS + 300);
 
@@ -256,6 +266,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
 
     const resetTimer = setTimeout(() => {
       setBootComplete(false);
+      setShowConversation(false); // ← reset on exit
       setConversationStatus("idle");
       setIsSpeaking(false);
 
@@ -282,6 +293,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
     >
       <audio ref={audioRef} src="/zenix_voice.mp3" preload="auto" />
 
+      {/* Settings icon button — top center, appears after boot */}
       <div
         style={{
           position: "absolute",
@@ -384,6 +396,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
               boxSizing: "border-box",
             }}
           >
+            {/* ── Left: HistoryBox — slides in after boot ── */}
             <AnimatePresence>
               {bootComplete && (
                 <MotionDiv
@@ -404,6 +417,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
               )}
             </AnimatePresence>
 
+            {/* ── Center: Orb — always centered ── */}
             <div
               style={{
                 flex: 1,
@@ -417,24 +431,80 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
                 isSpeaking={isSpeaking}
                 audioLevel={audioLevel}
                 audioRef={audioRef}
+                setIsOrbReady={setIsOrbReady}
               />
             </div>
 
+            {/* ── Right: ConversationBox — cinematic entrance after intro audio ── */}
             <AnimatePresence>
-              {bootComplete && (
+              {showConversation && (
                 <MotionDiv
-                  initial={{ x: 80, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: 80, opacity: 0 }}
-                  transition={{ duration: 0.5 }}
+                  initial={{
+                    x: 120,
+                    opacity: 0,
+                    scale: 0.92,
+                    filter: "blur(18px) brightness(2.5)",
+                  }}
+                  animate={{
+                    x: 0,
+                    opacity: 1,
+                    scale: 1,
+                    filter: "blur(0px) brightness(1)",
+                  }}
+                  exit={{
+                    x: 120,
+                    opacity: 0,
+                    scale: 0.92,
+                    filter: "blur(12px) brightness(0)",
+                  }}
+                  transition={{
+                    duration: 0.9,
+                    ease: [0.16, 1, 0.3, 1],
+                    opacity: { duration: 0.6 },
+                    filter: { duration: 0.7 },
+                    scale: { duration: 0.7 },
+                  }}
                   style={{
                     width: "370px",
                     height: "95%",
                     paddingTop: "25px",
                     display: "flex",
                     flexDirection: "column",
+                    position: "relative",
                   }}
                 >
+                  {/* Scan-line sweep overlay — fades out after entry */}
+                  <MotionDiv
+                    initial={{ opacity: 1, top: "0%" }}
+                    animate={{ opacity: 0, top: "100%" }}
+                    transition={{ duration: 0.7, ease: "easeIn", delay: 0.1 }}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      width: "100%",
+                      height: "60px",
+                      background: "linear-gradient(180deg, transparent 0%, rgba(96,165,250,0.35) 50%, transparent 100%)",
+                      pointerEvents: "none",
+                      zIndex: 10,
+                      borderRadius: "16px",
+                    }}
+                  />
+
+                  {/* Glow border flash on entry */}
+                  <MotionDiv
+                    initial={{ opacity: 0.9 }}
+                    animate={{ opacity: 0 }}
+                    transition={{ duration: 0.8, delay: 0.1 }}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      borderRadius: "16px",
+                      boxShadow: "0 0 40px 8px rgba(96,165,250,0.5), inset 0 0 30px rgba(96,165,250,0.15)",
+                      pointerEvents: "none",
+                      zIndex: 10,
+                    }}
+                  />
+
                   <ConversationBox
                     status={conversationStatus}
                     setStatus={setConversationStatus}
