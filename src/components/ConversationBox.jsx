@@ -116,9 +116,11 @@ function useUserSpeechStream({ text, active, speed = 90 }) {
 
 function TranscriptEntry({ entry, isLatest, globalStatus }) {
   const isUser = entry.type === "user";
+  const isInterimUser = isUser && entry.interim;
   const { displayed: uD, done: uDone } = useUserSpeechStream({
     text: entry.text,
-    active: isUser && isLatest && globalStatus === "listening",
+    active:
+      isUser && !isInterimUser && isLatest && globalStatus === "listening",
     speed: 85,
   });
   const { displayed: aD, done: aDone } = useStreamText({
@@ -127,7 +129,11 @@ function TranscriptEntry({ entry, isLatest, globalStatus }) {
     speed: 16,
   });
   const isUserStr =
-    isUser && isLatest && globalStatus === "listening" && !uDone;
+    isUser &&
+    !isInterimUser &&
+    isLatest &&
+    globalStatus === "listening" &&
+    !uDone;
   const isAssStr =
     !isUser && isLatest && globalStatus === "responding" && !aDone;
   const text = isUser
@@ -153,7 +159,7 @@ function TranscriptEntry({ entry, isLatest, globalStatus }) {
           >
             {isUser ? "YOU" : "ZENIX"}
           </span>
-          {isUserStr && <span style={S.liveBadge}>LIVE</span>}
+          {(isInterimUser || isUserStr) && <span style={S.liveBadge}>LIVE</span>}
         </div>
         <span style={S.timestamp}>{entry.time}</span>
       </div>
@@ -341,6 +347,7 @@ export default function ConversationBox({
       setInternalEntries((prev) => [
         ...prev,
         {
+          id: crypto.randomUUID(),
           type: "assistant",
           text: data.reply,
           time: now(),
@@ -368,9 +375,12 @@ export default function ConversationBox({
         },
       ]);
 
-      const timerId = setTimeout(() => {
-        setStatus("listening");
-      }, fallbackReply.length * 16 + 600);
+      const timerId = setTimeout(
+        () => {
+          setStatus("listening");
+        },
+        fallbackReply.length * 16 + 600,
+      );
 
       timers.current.push(timerId);
     }
@@ -378,8 +388,13 @@ export default function ConversationBox({
 
   const handleUserMessage = (text) => {
     const nextText = text.trim();
-
     if (!nextText) return;
+
+    // If entries are controlled by parent (Home.jsx), don't add locally
+    if (externalEntries !== undefined) {
+      sendMessageToBackend(nextText);
+      return;
+    }
 
     clearTimers();
     setDemoRunning(false);
@@ -519,7 +534,7 @@ export default function ConversationBox({
           </div>
         )}
         {entries.map((entry, i) => (
-          <div key={i} className="zenix-entry">
+          <div key={entry.id || i} className="zenix-entry">
             <TranscriptEntry
               entry={entry}
               isLatest={i === entries.length - 1}
