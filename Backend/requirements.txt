@@ -8,3 +8,8 @@ slowapi
 secure
 groq
 google-genai
+slowapi
+secure
+python-multipart
+passlib[bcrypt]
+python-jose
