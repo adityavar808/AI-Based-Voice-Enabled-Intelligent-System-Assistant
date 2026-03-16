@@ -37,7 +37,15 @@ def create_access_token(data: dict):
 
     return encoded_jwt
 
+REFRESH_TOKEN_EXPIRE_DAYS = 7
 
+def create_refresh_token(data: dict):
+
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+
+    data.update({"exp": expire})
+
+    return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
 def verify_token(credentials = Depends(security)):
 
     token = credentials.credentials
