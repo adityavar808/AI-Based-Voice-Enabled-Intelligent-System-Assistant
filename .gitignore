@@ -1,13 +1,18 @@
-# Python
-__pycache__/
-*.pyc
-
+<<<<<<< HEAD
 # Node
 node_modules/
 dist/
-
-# Environment
+=======
+node_modules
+dist
+dist-ssr
+*.local
+Zenix-Backend/
 .env
+__pycache__/
+*.pyc
+>>>>>>> a0148a31ba44a3d065472ebe2a315f4376266cc3
+
 venv/
 
 # OS

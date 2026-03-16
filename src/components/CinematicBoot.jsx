@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import SystemLogs from "./SystemLogs";
 import OrbCore from "./OrbCore";
 
+const MotionDiv = motion.div;
+
 function CinematicBoot({
   isSpeaking,
   audioLevel,
@@ -35,7 +37,7 @@ function CinematicBoot({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#001f2f_0%,#000000_70%)]" />
 
         {/* Subtle Moving Glow */}
-        <motion.div
+        <MotionDiv
           animate={{
             scale: [1, 1.2, 1],
             opacity: [0.2, 0.4, 0.2],
@@ -58,16 +60,16 @@ function CinematicBoot({
 
         {/* Main Layout */}
         <div className="relative w-full h-full flex items-center justify-center gap-16 px-10">
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, x: -100 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 1, duration: 1 }}
             className="w-[40%] max-w-2xl"
           >
             <SystemLogs />
-          </motion.div>
+          </MotionDiv>
 
-          <motion.div
+          <MotionDiv
             initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 1.2, duration: 1 }}
@@ -88,7 +90,7 @@ function CinematicBoot({
                   <span>42%</span>
                 </div>
                 <div className="h-2 bg-slate-800 rounded-full overflow-hidden mt-1">
-                  <motion.div
+                  <MotionDiv
                     initial={{ width: 0 }}
                     animate={{ width: "42%" }}
                     transition={{ duration: 1.5 }}
@@ -103,7 +105,7 @@ function CinematicBoot({
                   <span>6.7GB</span>
                 </div>
                 <div className="h-2 bg-slate-800 rounded-full overflow-hidden mt-1">
-                  <motion.div
+                  <MotionDiv
                     initial={{ width: 0 }}
                     animate={{ width: "68%" }}
                     transition={{ duration: 1.5 }}
@@ -117,17 +119,17 @@ function CinematicBoot({
                 <span className="text-emerald-400">SECURE</span>
               </div>
             </div>
-          </motion.div>
+          </MotionDiv>
         </div>
 
-        <motion.div
+        <MotionDiv
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 2 }}
           className="absolute bottom-10 left-1/2 -translate-x-1/2 text-sm tracking-widest text-cyan-400/60 font-mono"
         >
           ZENIX AI BOOTING...
-        </motion.div>
+        </MotionDiv>
       </div>
     );
   }
@@ -135,20 +137,20 @@ function CinematicBoot({
   // 🔥 Orb Phase
   return (
     <AnimatePresence mode="wait">
-      <motion.div
+      <MotionDiv
         key="orb"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.8 }}
         className="w-full h-full bg-black flex items-center justify-center"
-      >
-        <OrbCore
-          isSpeaking={isSpeaking}
-          audioLevel={audioLevel}
-          audioRef={audioRef}
-        />
-      </motion.div>
+        >
+          <OrbCore
+            isSpeaking={isSpeaking}
+            audioLevel={audioLevel}
+            audioRef={audioRef}
+          />
+      </MotionDiv>
     </AnimatePresence>
   );
 }

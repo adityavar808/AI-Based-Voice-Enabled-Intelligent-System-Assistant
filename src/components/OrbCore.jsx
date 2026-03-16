@@ -1,584 +1,422 @@
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+
+const MotionDiv = motion.div;
+const MotionSvg = motion.svg;
+const MotionCircle = motion.circle;
+const MotionLine = motion.line;
+const MotionText = motion.text;
+
+const MAX_ORB_SIZE = 800;
+const BASE_ORB_SIZE = 500;
+const PARTICLE_COUNT = 120;
+
+// These constants are kept but only used for mic energy visualization now
+// STT / speech recognition has been removed — owned entirely by Home.jsx
+const NOISE_CALIBRATION_FRAMES = 90;
+
+function getSharedAudioContext() {
+  if (typeof window === "undefined") return null;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext || null;
+  if (!AudioContextClass) return null;
+  if (!window.__zenixSharedAudioContext || window.__zenixSharedAudioContext.state === "closed") {
+    window.__zenixSharedAudioContext = new AudioContextClass();
+  }
+  return window.__zenixSharedAudioContext;
+}
+
+function getSharedMediaElementSourceMap() {
+  if (typeof window === "undefined") return null;
+  if (!window.__zenixMediaElementSources) {
+    window.__zenixMediaElementSources = new WeakMap();
+  }
+  return window.__zenixMediaElementSources;
+}
+
+function averageLevel(data) {
+  if (!data?.length) return 0;
+  return data.reduce((total, value) => total + value, 0) / data.length;
+}
+
+function buildParticles(size) {
+  const baseRadius = size * 0.26;
+  return Array.from({ length: PARTICLE_COUNT }, (_, index) => ({
+    id: index,
+    angle: (Math.PI * 2 * index) / PARTICLE_COUNT,
+    radius: baseRadius + Math.random() * (size * 0.04),
+    speed: 0.0003 + Math.random() * 0.0007,
+    size: 0.8 + Math.random() * 1.5,
+    offset: Math.random() * Math.PI * 2,
+    pulseSpeed: 0.015 + Math.random() * 0.025,
+  }));
+}
 
 function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+
   const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const dataArrayRef = useRef(null);
+  const audioAnalyserRef = useRef(null);
   const audioElementSourceRef = useRef(null);
-  const [particles, setParticles] = useState([]);
-  const [dimensions, setDimensions] = useState({ width: 500, height: 500 });
-  const animationFrameRef = useRef(null);
-  const micStreamRef = useRef(null);
+  const audioDataArrayRef = useRef(null);
+
+  const micAnalyserRef = useRef(null);
   const micSourceRef = useRef(null);
-  const [isMicActive, setIsMicActive] = useState(false);
+  const micStreamRef = useRef(null);
+  const micDataArrayRef = useRef(null);
+
+  const animationFrameRef = useRef(null);
+  const monitorFrameRef = useRef(null);
+  const particleSizeRef = useRef(BASE_ORB_SIZE);
+
+  // isUserSpeaking is kept purely for orb visual reactions
+  const isUserSpeakingRef = useRef(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
-  const silenceTimeoutRef = useRef(null);
-  const recognitionRef = useRef(null);
-  const shouldRestartRef = useRef(true);
 
-  const startMic = async () => {
-    try {
-      if (audioContextRef.current.state === "suspended") {
-        await audioContextRef.current.resume();
-      }
+  const [particles, setParticles] = useState(() => buildParticles(BASE_ORB_SIZE));
+  const [dimensions, setDimensions] = useState({ width: BASE_ORB_SIZE, height: BASE_ORB_SIZE });
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
+  const svgIdPrefix = useId().replace(/[:]/g, "");
+  const glowFilterId = `advancedGlow-${svgIdPrefix}`;
+  const shimmerId = `shimmer-${svgIdPrefix}`;
+  const depthGradientId = `depthGradient-${svgIdPrefix}`;
 
-      micStreamRef.current = stream;
+  const intensity = Math.min(Math.max(audioLevel * 2, 0), 1);
 
-      if (!analyserRef.current) {
-        analyserRef.current = audioContextRef.current.createAnalyser();
-        analyserRef.current.fftSize = 512;
-        analyserRef.current.smoothingTimeConstant = 0.85;
-
-        dataArrayRef.current = new Uint8Array(
-          analyserRef.current.frequencyBinCount,
-        );
-      }
-
-      micSourceRef.current =
-        audioContextRef.current.createMediaStreamSource(stream);
-
-      micSourceRef.current.connect(analyserRef.current);
-
-      setIsMicActive(true);
-      console.log("🎤 AI Assistant Listening...");
-    } catch (err) {
-      console.error("Mic error:", err);
-    }
-  };
-
+  // ── Audio context setup & cleanup ─────────────────────────────────────────
   useEffect(() => {
-    audioContextRef.current = new (
-      window.AudioContext || window.webkitAudioContext
-    )();
+    const context = getSharedAudioContext();
+    if (!context) return undefined;
+    audioContextRef.current = context;
 
     return () => {
-      audioContextRef.current?.close();
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (monitorFrameRef.current) cancelAnimationFrame(monitorFrameRef.current);
+
+      audioElementSourceRef.current?.disconnect();
+      audioAnalyserRef.current?.disconnect();
+      micSourceRef.current?.disconnect();
+      micAnalyserRef.current?.disconnect();
+      micStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+      audioElementSourceRef.current = null;
+      audioAnalyserRef.current = null;
+      audioDataArrayRef.current = null;
+      micSourceRef.current = null;
+      micAnalyserRef.current = null;
+      micDataArrayRef.current = null;
+      micStreamRef.current = null;
+      audioContextRef.current = null;
     };
   }, []);
 
-  const stopMic = () => {
-    micStreamRef.current?.getTracks().forEach((track) => track.stop());
-    micSourceRef.current?.disconnect();
-    micStreamRef.current = null;
-    micSourceRef.current = null;
-    setIsMicActive(false);
-
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current);
-      silenceTimeoutRef.current = null;
-    }
-
-    console.log("🛑 Mic auto stopped due to silence");
-  };
-
-  const intensity = Math.min(Math.max(audioLevel * 2, 0), 1); // Ensure 0-1 range
-
-  // Initialize audio visualization from audioRef
+  // ── Resize observer ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (!audioRef?.current) return;
+    const container = containerRef.current;
+    if (!container) return undefined;
 
-    let isInitialized = false;
-
-    const initAudioVisualization = async () => {
-      // Prevent multiple initializations
-      if (isInitialized) {
-        console.log("⚠️ Already initialized, skipping...");
-        return;
-      }
-
-      try {
-        console.log("🎧 Starting audio visualization init...");
-        // Resume if suspended
-        if (audioContextRef.current.state === "suspended") {
-          await audioContextRef.current.resume();
-          console.log("✅ Audio context resumed");
-        }
-
-        // Create analyzer
-        if (!analyserRef.current) {
-          analyserRef.current = audioContextRef.current.createAnalyser();
-          analyserRef.current.fftSize = 512;
-          analyserRef.current.smoothingTimeConstant = 0.85;
-          dataArrayRef.current = new Uint8Array(
-            analyserRef.current.frequencyBinCount,
-          );
-          console.log(
-            "✅ Analyser created, bin count:",
-            analyserRef.current.frequencyBinCount,
-          );
-        }
-
-        // Create and connect audio source (ONLY ONCE!)
-        if (!audioElementSourceRef.current) {
-          console.log("🔗 Creating audio source...");
-          audioElementSourceRef.current =
-            audioContextRef.current.createMediaElementSource(audioRef.current);
-          audioElementSourceRef.current.connect(analyserRef.current);
-          analyserRef.current.connect(audioContextRef.current.destination);
-          console.log(
-            "✅ Audio pipeline connected: audio → analyser → speakers",
-          );
-
-          // Test: Get initial data
-          setTimeout(() => {
-            if (dataArrayRef.current) {
-              analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-              const avg =
-                dataArrayRef.current.reduce((a, b) => a + b, 0) /
-                dataArrayRef.current.length;
-              console.log("🧪 Test - Initial audio level:", avg.toFixed(2));
-            }
-          }, 500);
-        }
-
-        isInitialized = true;
-        console.log("✅ Audio visualization fully initialized!");
-      } catch (err) {
-        console.error("❌ Audio visualization error:", err);
-      }
-    };
-
-    // Initialize as soon as component mounts
-    const initTimer = setTimeout(() => {
-      console.log("⏰ Pre-initializing audio visualization...");
-      initAudioVisualization();
-    }, 100);
-
-    // Also handle play event
-    const handlePlay = async () => {
-      console.log("▶️ Audio play event detected");
-      if (!isInitialized) {
-        await initAudioVisualization();
-      }
-
-      // Resume context if suspended
-      if (audioContextRef.current?.state === "suspended") {
-        await audioContextRef.current.resume();
-        console.log("Context resumed on play");
-      }
-    };
-
-    const audioElement = audioRef.current;
-    audioElement.addEventListener("play", handlePlay);
-
-    return () => {
-      clearTimeout(initTimer);
-      audioElement?.removeEventListener("play", handlePlay);
-    };
-  }, [audioRef]);
-
-  // Handle responsive sizing
-  useEffect(() => {
     const updateDimensions = () => {
-      if (containerRef.current) {
-        const size = Math.min(
-          containerRef.current.offsetWidth,
-          containerRef.current.offsetHeight,
-          800, // Max size
-        );
-        setDimensions({ width: size, height: size });
+      const nextSize = Math.min(
+        Math.max(Math.min(container.offsetWidth, container.offsetHeight), 220),
+        MAX_ORB_SIZE,
+      );
+      if (particleSizeRef.current !== nextSize) {
+        particleSizeRef.current = nextSize;
+        setParticles(buildParticles(nextSize));
       }
+      setDimensions({ width: nextSize, height: nextSize });
     };
 
     updateDimensions();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(updateDimensions);
+      observer.observe(container);
+      return () => observer.disconnect();
+    }
+
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  // Initialize particle system
+  // ── Playback audio analyser ───────────────────────────────────────────────
   useEffect(() => {
-    const particleCount = 120;
-    const baseRadius = dimensions.width * 0.26;
-    const newParticles = Array.from({ length: particleCount }, (_, i) => ({
-      id: i,
-      angle: (Math.PI * 2 * i) / particleCount,
-      radius: baseRadius + Math.random() * (dimensions.width * 0.04),
-      speed: 0.0003 + Math.random() * 0.0007,
-      size: 0.8 + Math.random() * 1.5,
-      offset: Math.random() * Math.PI * 2,
-      pulseSpeed: 0.015 + Math.random() * 0.025,
-    }));
-    setParticles(newParticles);
-  }, [dimensions]);
+    const audioElement = audioRef?.current;
+    const context = audioContextRef.current;
+    if (!audioElement || !context) return undefined;
 
-  // Animate particles with audio reactivity
+    let disposed = false;
+
+    const ensurePlaybackAnalyser = async () => {
+      if (disposed) return;
+      try {
+        if (context.state === "suspended") await context.resume();
+
+        if (!audioAnalyserRef.current) {
+          const analyser = context.createAnalyser();
+          analyser.fftSize = 512;
+          analyser.smoothingTimeConstant = 0.92;
+          audioAnalyserRef.current = analyser;
+          audioDataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+        }
+
+        if (!audioElementSourceRef.current) {
+          const sourceMap = getSharedMediaElementSourceMap();
+          if (!sourceMap) return;
+
+          let source = sourceMap.get(audioElement);
+          if (!source) {
+            source = context.createMediaElementSource(audioElement);
+            sourceMap.set(audioElement, source);
+          }
+
+          try { source.disconnect(); } catch {}
+          try { audioAnalyserRef.current.disconnect(); } catch {}
+
+          source.connect(audioAnalyserRef.current);
+          audioAnalyserRef.current.connect(context.destination);
+          audioElementSourceRef.current = source;
+        }
+      } catch (error) {
+        console.error("Audio visualizer setup failed:", error);
+      }
+    };
+
+    void ensurePlaybackAnalyser();
+    audioElement.addEventListener("play", ensurePlaybackAnalyser);
+
+    return () => {
+      disposed = true;
+      audioElement.removeEventListener("play", ensurePlaybackAnalyser);
+    };
+  }, [audioRef]);
+
+  // ── Mic energy monitor — visuals ONLY, no STT ─────────────────────────────
+  useEffect(() => {
+    const context = audioContextRef.current;
+    if (!context || typeof navigator === "undefined") return undefined;
+    if (!navigator.mediaDevices?.getUserMedia) return undefined;
+
+    let cancelled = false;
+    let noiseSamples = [];
+    let smoothedEnergy = 0;
+    let noiseFloor = 0;
+
+    const setSpeakingState = (nextSpeaking) => {
+      if (isUserSpeakingRef.current === nextSpeaking) return;
+      isUserSpeakingRef.current = nextSpeaking;
+      setIsUserSpeaking(nextSpeaking);
+    };
+
+    const monitor = () => {
+      if (cancelled || !micAnalyserRef.current || !micDataArrayRef.current) return;
+
+      micAnalyserRef.current.getByteFrequencyData(micDataArrayRef.current);
+      const rawEnergy = averageLevel(micDataArrayRef.current);
+      smoothedEnergy = smoothedEnergy * 0.84 + rawEnergy * 0.16;
+
+      const dynamicThreshold = noiseFloor + 10;
+      const speaking = smoothedEnergy > dynamicThreshold;
+
+      // Update speaking state for orb visuals only
+      // STT and all voice processing is handled by Home.jsx
+      setSpeakingState(speaking);
+
+      monitorFrameRef.current = requestAnimationFrame(monitor);
+    };
+
+    const calibrateNoiseFloor = () => {
+      if (cancelled || !micAnalyserRef.current || !micDataArrayRef.current) return;
+
+      micAnalyserRef.current.getByteFrequencyData(micDataArrayRef.current);
+      noiseSamples.push(averageLevel(micDataArrayRef.current));
+
+      if (noiseSamples.length < NOISE_CALIBRATION_FRAMES) {
+        monitorFrameRef.current = requestAnimationFrame(calibrateNoiseFloor);
+        return;
+      }
+
+      noiseFloor = averageLevel(noiseSamples);
+      monitor();
+    };
+
+    const startMonitoring = async () => {
+      try {
+        if (context.state === "suspended") await context.resume();
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.88;
+
+        const source = context.createMediaStreamSource(stream);
+        source.connect(analyser);
+
+        micStreamRef.current = stream;
+        micSourceRef.current = source;
+        micAnalyserRef.current = analyser;
+        micDataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+
+        calibrateNoiseFloor();
+      } catch (error) {
+        console.error("Microphone monitoring failed:", error);
+      }
+    };
+
+    void startMonitoring();
+
+    return () => {
+      cancelled = true;
+      if (monitorFrameRef.current) {
+        cancelAnimationFrame(monitorFrameRef.current);
+        monitorFrameRef.current = null;
+      }
+      setSpeakingState(false);
+      noiseSamples = [];
+    };
+  }, []);
+
+  // ── Canvas particle renderer ──────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return undefined;
 
-    const ctx = canvas.getContext("2d");
+    const context = canvas.getContext("2d");
+    if (!context) return undefined;
+
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     let frame = 0;
-    let debugCounter = 0;
 
-    const animate = () => {
-      // Get real-time audio frequency data
-      let speaking = false;
+    const render = () => {
+      const playbackData = audioDataArrayRef.current;
+      const micData = micDataArrayRef.current;
 
-      if (analyserRef.current && dataArrayRef.current) {
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-
-        const avgVolume =
-          dataArrayRef.current.reduce((a, b) => a + b, 0) /
-          dataArrayRef.current.length;
-
-        const threshold = 20;
-        speaking = avgVolume > threshold;
-
-        // 🔥 Silence detection logic
-        if (speaking) {
-          if (silenceTimeoutRef.current) {
-            clearTimeout(silenceTimeoutRef.current);
-            silenceTimeoutRef.current = null;
-          }
-        } else {
-          if (!silenceTimeoutRef.current && isMicActive) {
-            silenceTimeoutRef.current = setTimeout(() => {
-              stopMic();
-            }, 4000); // 4 sec silence
-          }
-        }
+      if (audioAnalyserRef.current && playbackData) {
+        audioAnalyserRef.current.getByteFrequencyData(playbackData);
+      }
+      if (micAnalyserRef.current && micData) {
+        micAnalyserRef.current.getByteFrequencyData(micData);
       }
 
-      if (speaking !== isUserSpeaking) {
-        setIsUserSpeaking(speaking);
-      }
+      const playbackAverage = averageLevel(playbackData);
+      const playbackSpeaking = isSpeaking || playbackAverage > 18;
+      const energyBoost = playbackSpeaking || isUserSpeakingRef.current ? 1.3 : 1;
+      const scaleFactor = canvas.width / BASE_ORB_SIZE;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      context.clearRect(0, 0, canvas.width, canvas.height);
       frame += 1;
 
-      const energyBoost = speaking ? 1.3 : 1;
-      const scaleFactor = canvas.width / 500;
-
       particles.forEach((particle, index) => {
-        // Map each particle to a frequency band
-        const audioIndex = Math.floor(
-          (index / particles.length) * (dataArrayRef.current?.length || 128),
-        );
-        const audioValue = (dataArrayRef.current?.[audioIndex] || 0) / 255;
+        const playbackIndex = Math.floor((index / particles.length) * (playbackData?.length || 128));
+        const micIndex = Math.floor((index / particles.length) * (micData?.length || 128));
 
-        const currentAngle =
-          particle.angle + frame * particle.speed * energyBoost;
-        const wobble =
-          Math.sin(frame * particle.pulseSpeed + particle.offset) *
-          (4 * scaleFactor);
+        const playbackValue = (playbackData?.[playbackIndex] || 0) / 255;
+        const micValue = (micData?.[micIndex] || 0) / 255;
+        const audioValue = Math.max(playbackValue, micValue * 1.15);
 
-        // Audio-reactive expansion (stronger response)
+        const currentAngle = particle.angle + frame * particle.speed * energyBoost;
+        const wobble = Math.sin(frame * particle.pulseSpeed + particle.offset) * (4 * scaleFactor);
         const audioBoost = audioValue * 40 * scaleFactor;
         const currentRadius =
           particle.radius +
           wobble +
           audioBoost +
-          (isSpeaking ? intensity * 12 * scaleFactor : 0);
+          (playbackSpeaking ? intensity * 12 * scaleFactor : 0) +
+          (isUserSpeakingRef.current ? micValue * 18 * scaleFactor : 0);
 
         const x = centerX + Math.cos(currentAngle) * currentRadius;
         const y = centerY + Math.sin(currentAngle) * currentRadius;
 
-        // Create gradient with blue neon colors
-        const gradient = ctx.createRadialGradient(
-          x,
-          y,
-          0,
-          x,
-          y,
-          particle.size * 4 * scaleFactor,
-        );
+        const gradient = context.createRadialGradient(x, y, 0, x, y, particle.size * 4 * scaleFactor);
         const colorAngle = (currentAngle + Math.PI) / (Math.PI * 2);
+        const red = Math.floor(34 + (59 - 34) * colorAngle);
+        const green = Math.floor(211 - (211 - 130) * colorAngle);
+        const blue = Math.floor(238 + (246 - 238) * colorAngle);
 
-        // Cyan to Blue gradient
-        const r = Math.floor(34 + (59 - 34) * colorAngle);
-        const g = Math.floor(211 - (211 - 130) * colorAngle);
-        const b = Math.floor(238 + (246 - 238) * colorAngle);
+        const baseOpacity = 0.78 + intensity * 0.18;
+        const particleOpacity = Math.min(baseOpacity + audioValue * 0.4, 1);
 
-        // Audio-reactive brightness
-        const baseOpacity = 0.85 + intensity * 0.15;
-        const audioOpacity = Math.min(baseOpacity + audioValue * 0.4, 1);
+        gradient.addColorStop(0, `rgba(${red}, ${green}, ${blue}, ${particleOpacity})`);
+        gradient.addColorStop(0.4, `rgba(${red}, ${green}, ${blue}, ${(0.38 + intensity * 0.3) * (0.65 + audioValue * 0.35)})`);
+        gradient.addColorStop(1, `rgba(${red}, ${green}, ${blue}, 0)`);
 
-        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${audioOpacity})`);
-        gradient.addColorStop(
-          0.4,
-          `rgba(${r}, ${g}, ${b}, ${(0.4 + intensity * 0.3) * (0.6 + audioValue * 0.4)})`,
-        );
-        gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-
-        // Audio-reactive particle size
-        const particleSize =
-          particle.size * (2 + intensity + audioValue * 2.5) * scaleFactor;
-        ctx.arc(x, y, particleSize, 0, Math.PI * 2);
-        ctx.fill();
+        context.fillStyle = gradient;
+        context.beginPath();
+        context.arc(x, y, particle.size * (2 + intensity + audioValue * 2.5) * scaleFactor, 0, Math.PI * 2);
+        context.fill();
       });
 
-      animationFrameRef.current = requestAnimationFrame(animate);
+      animationFrameRef.current = requestAnimationFrame(render);
     };
 
-    animate();
+    render();
 
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
-  }, [particles, isSpeaking, intensity, dimensions]);
-
-  useEffect(() => {
-    let noiseSamples = [];
-    let noiseFloor = 0;
-    let calibrated = false;
-
-    let smoothedEnergy = 0;
-    let lastEnergy = 0;
-    let spikeCount = 0;
-    let voiceFrames = 0;
-    let cooldown = false;
-
-    const startMonitoring = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      micStreamRef.current = stream;
-
-      const context = audioContextRef.current;
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.85;
-
-      const source = context.createMediaStreamSource(stream);
-      source.connect(analyser);
-
-      analyserRef.current = analyser;
-      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
-
-      const calibrateNoise = () => {
-        analyser.getByteFrequencyData(dataArrayRef.current);
-
-        const avg =
-          dataArrayRef.current.reduce((a, b) => a + b, 0) /
-          dataArrayRef.current.length;
-
-        noiseSamples.push(avg);
-
-        if (noiseSamples.length < 120) {
-          requestAnimationFrame(calibrateNoise);
-        } else {
-          noiseFloor =
-            noiseSamples.reduce((a, b) => a + b, 0) / noiseSamples.length;
-
-          calibrated = true;
-
-          console.log("🔊 Noise Floor:", noiseFloor.toFixed(2));
-          monitor();
-        }
-      };
-
-      const monitor = () => {
-        analyser.getByteFrequencyData(dataArrayRef.current);
-
-        const rawEnergy =
-          dataArrayRef.current.reduce((a, b) => a + b, 0) /
-          dataArrayRef.current.length;
-
-        // 🔥 Energy Smoothing (EMA)
-        smoothedEnergy = smoothedEnergy * 0.85 + rawEnergy * 0.15;
-
-        const dynamicThreshold = noiseFloor + 10;
-
-        const energyDiff = smoothedEnergy - lastEnergy;
-
-        // 🔥 Spike detection
-        if (energyDiff > 8) {
-          spikeCount++;
-        } else {
-          spikeCount = Math.max(spikeCount - 1, 0);
-        }
-
-        // 🔥 Voice sustain detection
-        if (smoothedEnergy > dynamicThreshold) {
-          voiceFrames++;
-        } else {
-          voiceFrames = Math.max(voiceFrames - 1, 0);
-        }
-
-        // 🔥 Activation condition
-        if (!isMicActive && !cooldown && spikeCount > 2 && voiceFrames > 5) {
-          console.log("🚀 Smart Activation Triggered");
-
-          cooldown = true;
-
-          activateAssistant();
-
-          setTimeout(() => {
-            cooldown = false;
-          }, 5000); // 5 sec cooldown
-        }
-
-        lastEnergy = smoothedEnergy;
-
-        requestAnimationFrame(monitor);
-      };
-
-      calibrateNoise();
-    };
-
-    startMonitoring();
-  }, []);
-
-  const activateAssistant = () => {
-    console.log("🚀 Assistant Activated");
-
-    setIsMicActive(true);
-
-    startCommandRecognition();
-
-    setTimeout(() => {
-      deactivateAssistant();
-    }, 8000);
-  };
-
-  const deactivateAssistant = () => {
-    console.log("💤 Assistant Sleeping");
-
-    setIsMicActive(false);
-
-    recognitionRef.current?.stop();
-  };
-
-  const startCommandRecognition = () => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) return;
-
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[event.results.length - 1][0].transcript;
-
-      console.log("🗣 Command:", transcript);
-    };
-
-    recognition.start();
-  };
+  }, [dimensions.width, intensity, isSpeaking, particles]);
 
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center justify-center w-full h-full bg-black overflow-hidden"
+      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black"
     >
-      {/* Atmospheric Background Glows */}
       <div className="absolute inset-0 opacity-40">
-        <motion.div
-          className="absolute top-1/4 left-1/4 w-2/5 h-2/5 bg-blue-500/30 rounded-full blur-[140px]"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+        <MotionDiv
+          className="absolute left-1/4 top-1/4 h-2/5 w-2/5 rounded-full bg-blue-500/30 blur-[140px]"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
-          className="absolute bottom-1/3 right-1/3 w-1/3 h-1/3 bg-cyan-500/30 rounded-full blur-[120px]"
-          animate={{
-            scale: [1.1, 1, 1.1],
-            opacity: [0.25, 0.45, 0.25],
-          }}
-          transition={{
-            duration: 5,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 0.5,
-          }}
+        <MotionDiv
+          className="absolute bottom-1/3 right-1/3 h-1/3 w-1/3 rounded-full bg-cyan-500/30 blur-[120px]"
+          animate={{ scale: [1.1, 1, 1.1], opacity: [0.25, 0.45, 0.25] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
         />
-        <motion.div
-          className="absolute top-1/2 right-1/4 w-1/4 h-1/4 bg-blue-400/25 rounded-full blur-[100px]"
-          animate={{
-            scale: [1, 1.15, 1],
-            opacity: [0.2, 0.35, 0.2],
-          }}
-          transition={{
-            duration: 3.5,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 1,
-          }}
+        <MotionDiv
+          className="absolute right-1/4 top-1/2 h-1/4 w-1/4 rounded-full bg-blue-400/25 blur-[100px]"
+          animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.35, 0.2] }}
+          transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         />
       </div>
 
-      {/* Main Core Glow */}
-      <motion.div
+      <MotionDiv
         className="absolute rounded-full"
         style={{
           width: `${dimensions.width * 0.58}px`,
           height: `${dimensions.height * 0.58}px`,
-          background:
-            "radial-gradient(circle, rgba(59, 130, 246, 0.45) 0%, rgba(34, 211, 238, 0.35) 40%, rgba(37, 99, 235, 0.25) 70%, transparent 90%)",
+          background: "radial-gradient(circle, rgba(59, 130, 246, 0.45) 0%, rgba(34, 211, 238, 0.35) 40%, rgba(37, 99, 235, 0.25) 70%, transparent 90%)",
           filter: "blur(50px)",
         }}
         animate={{
           scale: isSpeaking ? [1, 1.12, 1] : 1,
           opacity: isSpeaking ? [0.65, 0.95, 0.65] : 0.55,
         }}
-        transition={{
-          duration: isSpeaking ? 0.6 : 2.5,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
+        transition={{ duration: isSpeaking ? 0.6 : 2.5, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* Particle System Canvas */}
       <canvas
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
         className="absolute z-10"
-        style={{
-          width: `${dimensions.width}px`,
-          height: `${dimensions.height}px`,
-        }}
+        style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px` }}
       />
 
-      {/* SVG Ring Structure */}
-      <motion.svg
+      <MotionSvg
         viewBox="0 0 400 400"
         className="relative z-20"
-        style={{
-          width: `${dimensions.width * 0.82}px`,
-          height: `${dimensions.height * 0.82}px`,
-        }}
-        animate={{
-          scale: isSpeaking ? 1.02 + (intensity || 0) * 0.03 : 1,
-        }}
-        transition={{
-          type: "spring",
-          stiffness: 400,
-          damping: 25,
-        }}
+        style={{ width: `${dimensions.width * 0.82}px`, height: `${dimensions.height * 0.82}px` }}
+        animate={{ scale: isSpeaking ? 1.02 + intensity * 0.03 : 1 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
       >
         <defs>
-          {/* Advanced Glow Filter */}
-          <filter
-            id="advancedGlow"
-            x="-50%"
-            y="-50%"
-            width="200%"
-            height="200%"
-          >
+          <filter id={glowFilterId} x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="2" result="blur1" />
             <feGaussianBlur stdDeviation="6" result="blur2" />
             <feGaussianBlur stdDeviation="12" result="blur3" />
@@ -589,205 +427,102 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-
-          {/* Shimmer Gradient */}
-          <linearGradient id="shimmer" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id={shimmerId} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#3b82f6" stopOpacity="1" />
             <stop offset="50%" stopColor="#0ea5e9" stopOpacity="0.95" />
             <stop offset="100%" stopColor="#22d3ee" stopOpacity="1" />
           </linearGradient>
-
-          {/* Core Depth Gradient */}
-          <radialGradient id="depthGradient">
+          <radialGradient id={depthGradientId}>
             <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
             <stop offset="50%" stopColor="#0ea5e9" stopOpacity="0.12" />
             <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
           </radialGradient>
         </defs>
 
-        {/* Core Fill */}
-        <motion.circle
-          cx="200"
-          cy="200"
-          initial={{ r: 118 }}
-          animate={{
-            r: isSpeaking ? 118 + (intensity || 0) * 8 : 118,
-            opacity: isSpeaking ? [0.7, 1, 0.7] : 0.6,
-          }}
-          fill="url(#depthGradient)"
+        <MotionCircle
+          cx="200" cy="200" initial={{ r: 118 }}
+          animate={{ r: isSpeaking ? 118 + intensity * 8 : 118, opacity: isSpeaking ? [0.7, 1, 0.7] : 0.6 }}
+          fill={`url(#${depthGradientId})`}
           transition={{ duration: 0.4, repeat: Infinity }}
         />
-
-        {/* Outer Shimmer Ring */}
-        <motion.circle
-          cx="200"
-          cy="200"
-          initial={{ r: 147 }}
-          fill="transparent"
-          stroke="url(#shimmer)"
-          strokeWidth="1.2"
-          strokeLinecap="round"
-          opacity="0.35"
-          filter="url(#advancedGlow)"
-          animate={{
-            r: 147,
-            strokeDashoffset: isSpeaking ? [0, -628] : 0,
-            opacity: isSpeaking ? [0.35, 0.55, 0.35] : 0.35,
-          }}
-          transition={{
-            strokeDashoffset: { duration: 4, repeat: Infinity, ease: "linear" },
-            opacity: { duration: 1.5, repeat: Infinity },
-          }}
+        <MotionCircle
+          cx="200" cy="200" initial={{ r: 147 }}
+          fill="transparent" stroke={`url(#${shimmerId})`}
+          strokeWidth="1.2" strokeLinecap="round" opacity="0.35"
+          filter={`url(#${glowFilterId})`}
+          animate={{ r: 147, strokeDashoffset: isSpeaking ? [0, -628] : 0, opacity: isSpeaking ? [0.35, 0.55, 0.35] : 0.35 }}
+          transition={{ strokeDashoffset: { duration: 4, repeat: Infinity, ease: "linear" }, opacity: { duration: 1.5, repeat: Infinity } }}
           strokeDasharray="3 6"
         />
-
-        {/* Primary Blue Ring */}
-        <motion.circle
-          cx="200"
-          cy="200"
-          initial={{ r: 137 }}
+        <MotionCircle
+          cx="200" cy="200" initial={{ r: 137 }}
           fill="transparent"
-          stroke={
-            isMicActive ? (isUserSpeaking ? "#ef4444" : "#f87171") : "#3b82f6"
-          }
-          strokeWidth="3"
-          strokeLinecap="round"
-          filter="url(#advancedGlow)"
-          animate={{
-            strokeWidth: isUserSpeaking ? 4 : 3,
-            opacity: isUserSpeaking ? 1 : 0.8,
-            r: 137,
-          }}
+          stroke={isUserSpeaking ? "#ef4444" : "#3b82f6"}
+          strokeWidth="3" strokeLinecap="round"
+          filter={`url(#${glowFilterId})`}
+          animate={{ strokeWidth: isUserSpeaking ? 4 : 3, opacity: isUserSpeaking ? 1 : 0.8, r: 137 }}
           transition={{ duration: 0.2 }}
         />
-
-        {/* Middle Sky Blue Ring */}
-        <motion.circle
-          cx="200"
-          cy="200"
-          initial={{ r: 129 }}
-          fill="transparent"
-          stroke="#0ea5e9"
-          strokeWidth="1.2"
-          opacity="0.65"
-          filter="url(#advancedGlow)"
-          animate={{
-            r: 129,
-            opacity: isSpeaking ? 0.75 + (intensity || 0) * 0.25 : 0.65,
-            strokeWidth: isSpeaking ? 1.5 : 1.2,
-          }}
+        <MotionCircle
+          cx="200" cy="200" initial={{ r: 129 }}
+          fill="transparent" stroke="#0ea5e9" strokeWidth="1.2" opacity="0.65"
+          filter={`url(#${glowFilterId})`}
+          animate={{ r: 129, opacity: isSpeaking ? 0.75 + intensity * 0.25 : 0.65, strokeWidth: isSpeaking ? 1.5 : 1.2 }}
           transition={{ duration: 0.2 }}
         />
-
-        {/* Inner Cyan Ring */}
-        <motion.circle
-          cx="200"
-          cy="200"
-          initial={{ r: 116 }}
-          fill="transparent"
-          stroke="#22d3ee"
-          strokeWidth="0.8"
-          opacity="0.45"
-          animate={{
-            r: 116,
-            opacity: isSpeaking ? 0.6 : 0.45,
-          }}
+        <MotionCircle
+          cx="200" cy="200" initial={{ r: 116 }}
+          fill="transparent" stroke="#22d3ee" strokeWidth="0.8" opacity="0.45"
+          animate={{ r: 116, opacity: isSpeaking ? 0.6 : 0.45 }}
         />
 
-        {/* Energy Burst Lines */}
-        {isSpeaking &&
-          Array.from({ length: 16 }).map((_, i) => {
-            const angle = (Math.PI * 2 * i) / 16;
-            const startR = 142;
-            const endR = 158 + (intensity || 0) * 12;
-            return (
-              <motion.line
-                key={i}
-                x1={200 + Math.cos(angle) * startR}
-                y1={200 + Math.sin(angle) * startR}
-                x2={200 + Math.cos(angle) * endR}
-                y2={200 + Math.sin(angle) * endR}
-                stroke="#60a5fa"
-                strokeWidth="2"
-                strokeLinecap="round"
-                filter="url(#advancedGlow)"
-                initial={{ opacity: 0, strokeWidth: 0 }}
-                animate={{
-                  opacity: [0, 0.7 + (intensity || 0) * 0.3, 0],
-                  strokeWidth: [0, 2.5, 0],
-                }}
-                transition={{
-                  duration: 0.7,
-                  repeat: Infinity,
-                  delay: i * 0.06,
-                  ease: "easeInOut",
-                }}
-              />
-            );
-          })}
+        {isSpeaking && Array.from({ length: 16 }).map((_, index) => {
+          const angle = (Math.PI * 2 * index) / 16;
+          const startRadius = 142;
+          const endRadius = 158 + intensity * 12;
+          return (
+            <MotionLine
+              key={index}
+              x1={200 + Math.cos(angle) * startRadius} y1={200 + Math.sin(angle) * startRadius}
+              x2={200 + Math.cos(angle) * endRadius} y2={200 + Math.sin(angle) * endRadius}
+              stroke="#60a5fa" strokeWidth="2" strokeLinecap="round"
+              filter={`url(#${glowFilterId})`}
+              initial={{ opacity: 0, strokeWidth: 0 }}
+              animate={{ opacity: [0, 0.7 + intensity * 0.3, 0], strokeWidth: [0, 2.5, 0] }}
+              transition={{ duration: 0.7, repeat: Infinity, delay: index * 0.06, ease: "easeInOut" }}
+            />
+          );
+        })}
 
-        {/* Pulsing Center Dot */}
-        <motion.circle
-          cx="200"
-          cy="200"
-          initial={{ r: 4 }}
-          fill="#3b82f6"
-          filter="url(#advancedGlow)"
-          animate={{
-            r: isUserSpeaking ? 6 : 4,
-            opacity: isUserSpeaking ? [0.8, 1, 0.8] : 0.85,
-          }}
-          transition={{
-            duration: 0.45,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+        <MotionCircle
+          cx="200" cy="200" initial={{ r: 4 }}
+          fill="#3b82f6" filter={`url(#${glowFilterId})`}
+          animate={{ r: isUserSpeaking ? 6 : 4, opacity: isUserSpeaking ? [0.8, 1, 0.8] : 0.85 }}
+          transition={{ duration: 0.45, repeat: Infinity, ease: "easeInOut" }}
         />
-        {/* ZENIX Text */}
-        <motion.text
-          x="200"
-          y="212"
-          textAnchor="middle"
-          fontSize="32"
-          fontWeight="600"
-          letterSpacing="8"
-          fill="#e0f2fe"
-          style={{
-            fontFamily: "Orbitron, sans-serif",
-          }}
-          filter="url(#advancedGlow)"
+
+        <MotionText
+          x="200" y="212" textAnchor="middle"
+          fontSize="32" fontWeight="600" letterSpacing="8"
+          fill="#e0f2fe" style={{ fontFamily: "Orbitron, sans-serif" }}
+          filter={`url(#${glowFilterId})`}
           initial={{ opacity: 0.8 }}
-          animate={{
-            opacity: isSpeaking ? [0.8, 1, 0.8] : 0.85,
-            scale: isSpeaking ? 1 + (intensity || 0) * 0.05 : 1,
-          }}
-          transition={{
-            duration: 0.6,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+          animate={{ opacity: isSpeaking ? [0.8, 1, 0.8] : 0.85, scale: isSpeaking ? 1 + intensity * 0.05 : 1 }}
+          transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut" }}
         >
           ZENIX
-        </motion.text>
-      </motion.svg>
+        </MotionText>
+      </MotionSvg>
 
-      {/* Rotating Atmospheric Layer */}
-      <motion.div
-        className="absolute rounded-full pointer-events-none z-5"
+      <MotionDiv
+        className="pointer-events-none absolute rounded-full z-[5]"
         style={{
           width: `${dimensions.width * 1.1}px`,
           height: `${dimensions.height * 1.1}px`,
-          background:
-            "radial-gradient(circle, transparent 20%, rgba(59, 130, 246, 0.06) 45%, rgba(14, 165, 233, 0.04) 65%, transparent 85%)",
+          background: "radial-gradient(circle, transparent 20%, rgba(59, 130, 246, 0.06) 45%, rgba(14, 165, 233, 0.04) 65%, transparent 85%)",
         }}
-        animate={{
-          rotate: 360,
-        }}
-        transition={{
-          duration: isUserSpeaking ? 8 : 25,
-          repeat: Infinity,
-          ease: "linear",
-        }}
+        animate={{ rotate: 360 }}
+        transition={{ duration: isUserSpeaking ? 8 : 25, repeat: Infinity, ease: "linear" }}
       />
     </div>
   );
