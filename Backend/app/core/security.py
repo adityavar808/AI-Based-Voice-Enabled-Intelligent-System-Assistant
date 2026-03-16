@@ -1,17 +1,16 @@
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta
+from fastapi import HTTPException, Depends
+from fastapi.security import HTTPBearer
 
-# Password hashing
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto"
-)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 SECRET_KEY = "ZENIX_SECRET_KEY"
 ALGORITHM = "HS256"
-
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
+
+security = HTTPBearer()
 
 
 def hash_password(password: str):
@@ -37,3 +36,23 @@ def create_access_token(data: dict):
     )
 
     return encoded_jwt
+
+
+def verify_token(credentials = Depends(security)):
+
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
+        return payload
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
