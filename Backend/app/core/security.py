@@ -49,7 +49,15 @@ def verify_token(credentials = Depends(security)):
             algorithms=[ALGORITHM]
         )
 
-        return payload
+        email = payload.get("sub")
+
+        if email is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token"
+            )
+
+        return email
 
     except Exception:
         raise HTTPException(
