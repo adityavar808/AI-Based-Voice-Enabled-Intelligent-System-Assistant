@@ -3,3 +3,8 @@ uvicorn
 python-dotenv
 google-genai
 groq
+passlib[bcrypt]
+python-jose
+sqlalchemy
+slowapi
+secure

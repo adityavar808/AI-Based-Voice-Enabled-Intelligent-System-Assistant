@@ -1,12 +1,8 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
+<<<<<<< HEAD
+# Node
+node_modules/
+dist/
+=======
 node_modules
 dist
 dist-ssr
@@ -15,14 +11,9 @@ Zenix-Backend/
 .env
 __pycache__/
 *.pyc
+>>>>>>> a0148a31ba44a3d065472ebe2a315f4376266cc3
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+venv/
+
+# OS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
