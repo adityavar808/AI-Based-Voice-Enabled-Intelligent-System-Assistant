@@ -1,10 +1,10 @@
 fastapi
 uvicorn
 python-dotenv
-google-genai
-groq
+sqlalchemy
 passlib[bcrypt]
 python-jose
-sqlalchemy
 slowapi
 secure
+groq
+google-genai
