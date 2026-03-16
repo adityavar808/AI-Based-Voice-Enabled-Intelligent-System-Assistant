@@ -1,38 +1,29 @@
+from fastapi import APIRouter, HTTPException, Depends, Request, Response
+from sqlalchemy.orm import Session
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from fastapi import APIRouter, HTTPException, Depends, Request
-from sqlalchemy.orm import Session
+from jose import jwt
 
 from app.schemas.auth_schema import RegisterRequest, LoginRequest
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    SECRET_KEY,
+    ALGORITHM
+)
 from app.database.db import get_db
 from app.models.user import User
 
+
 router = APIRouter(prefix="/api")
+
 limiter = Limiter(key_func=get_remote_address)
 
-@router.post("/login")
-@limiter.limit("5/minute")
 
-@router.post("/refresh")
-def refresh(request: Request, token: str):
+# ---------------- REGISTER ---------------- #
 
-    payload = jwt.decode(
-        token,
-        SECRET_KEY,
-        algorithms=[ALGORITHM]
-    )
-
-    new_access = create_access_token({
-        "sub": payload["sub"]
-    })
-
-    return {"access_token": new_access}
-
-
-@router.post("/logout")
-def logout():
-    return {"message": "Logged out"}
 @router.post("/register")
 def register(user: RegisterRequest, db: Session = Depends(get_db)):
 
@@ -55,8 +46,11 @@ def register(user: RegisterRequest, db: Session = Depends(get_db)):
     return {"message": "User registered successfully"}
 
 
+# ---------------- LOGIN ---------------- #
+
 @router.post("/login")
-def login(user: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, response: Response, user: LoginRequest, db: Session = Depends(get_db)):
 
     db_user = db.query(User).filter(User.email == user.email).first()
 
@@ -65,10 +59,54 @@ def login(user: LoginRequest, db: Session = Depends(get_db)):
 
     if not verify_password(user.password, db_user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
     access_token = create_access_token({"sub": db_user.email})
     refresh_token = create_refresh_token({"sub": db_user.email})
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token
-}
+    # store tokens in HttpOnly cookies
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="Strict"
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        samesite="Strict"
+    )
+
+    return {"message": "Login successful"}
+
+
+# ---------------- REFRESH TOKEN ---------------- #
+
+@router.post("/refresh")
+def refresh(refresh_token: str):
+
+    try:
+        payload = jwt.decode(
+            refresh_token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
+        new_access = create_access_token({"sub": payload["sub"]})
+
+        return {"access_token": new_access}
+
+    except:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+
+# ---------------- LOGOUT ---------------- #
+
+@router.post("/logout")
+def logout(response: Response):
+
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+
+    return {"message": "Logged out"}
