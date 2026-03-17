@@ -3,15 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from secure import Secure
 
 from app.routes import chat, auth
-from app.database.db import engine, Base
-
 
 app = FastAPI(title="ZENIX AI Backend")
 
-
-Base.metadata.create_all(bind=engine)
-
-
+# ---------------- CORS ---------------- #
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,9 +15,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+# ---------------- SECURITY HEADERS ---------------- #
 secure_headers = Secure()
-
 
 @app.middleware("http")
 async def secure_headers_middleware(request: Request, call_next):
@@ -33,11 +27,11 @@ async def secure_headers_middleware(request: Request, call_next):
 
     return response
 
+# ---------------- ROUTES ---------------- #
+app.include_router(auth.router)
+app.include_router(chat.router)
 
+# ---------------- ROOT ---------------- #
 @app.get("/")
 def root():
     return {"message": "ZENIX FastAPI backend running"}
-
-
-app.include_router(chat.router)
-app.include_router(auth.router)

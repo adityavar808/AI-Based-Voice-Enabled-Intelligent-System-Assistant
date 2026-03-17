@@ -1,25 +1,22 @@
-from sqlalchemy.orm import Session
-from app.models.conversation import Conversation
+from app.database.mongo import conversations_collection
 
 
-def save_message(db: Session, user_email: str, role: str, content: str):
-    msg = Conversation(
-        user_email=user_email,
-        role=role,
-        content=content
-    )
+def save_message(user_email, role, content):
 
-    db.add(msg)
-    db.commit()
+    conversations_collection.insert_one({
+        "user_email": user_email,
+        "role": role,
+        "content": content
+    })
 
 
-def get_history(db: Session, user_email: str):
+def get_history(user_email):
 
-    messages = db.query(Conversation).filter(
-        Conversation.user_email == user_email
-    ).all()
+    messages = list(conversations_collection.find({
+        "user_email": user_email
+    }))
 
     return [
-        {"role": m.role, "content": m.content}
+        {"role": m["role"], "content": m["content"]}
         for m in messages
     ]

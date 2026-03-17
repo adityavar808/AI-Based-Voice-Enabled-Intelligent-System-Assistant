@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.core.security import verify_token
-from app.database.db import get_db
 from app.services.ai_service import get_ai_response
 from app.services.conversation_service import save_message, get_history
 
@@ -16,16 +14,15 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-def chat(req: ChatRequest, user=Depends(verify_token), db: Session = Depends(get_db)):
+def chat(req: ChatRequest, user=Depends(verify_token)):
 
-    history = get_history(db, user)
+    user_email = user
 
-    reply = get_ai_response(
-        message=req.message,
-        history=history
-    )
+    history = get_history(user_email)
 
-    save_message(db, user, "user", req.message)
-    save_message(db, user, "assistant", reply)
+    reply = get_ai_response(req.message, history)
+
+    save_message(user_email, "user", req.message)
+    save_message(user_email, "assistant", reply)
 
     return {"reply": reply}

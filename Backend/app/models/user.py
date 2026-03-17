@@ -1,12 +1,22 @@
-from sqlalchemy import Column, Integer, String
-from app.database.db import Base
+from app.database.mongo import conversations_collection
 
-class User(Base):
 
-    __tablename__ = "users"
+def save_message(user_email, role, content):
 
-    id = Column(Integer, primary_key=True, index=True)
+    conversations_collection.insert_one({
+        "user_email": user_email,
+        "role": role,
+        "content": content
+    })
 
-    email = Column(String, unique=True, index=True)
 
-    password = Column(String)
+def get_history(user_email):
+
+    messages = list(conversations_collection.find({
+        "user_email": user_email
+    }))
+
+    return [
+        {"role": m["role"], "content": m["content"]}
+        for m in messages
+    ]

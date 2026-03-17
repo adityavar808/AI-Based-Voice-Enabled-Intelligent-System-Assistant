@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 python-dotenv
-sqlalchemy
 passlib[bcrypt]
 python-jose
 slowapi
@@ -13,3 +12,4 @@ secure
 python-multipart
 passlib[bcrypt]
 python-jose
+pymongo
