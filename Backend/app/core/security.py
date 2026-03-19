@@ -5,10 +5,13 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import os
+
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 load_dotenv()
 
@@ -18,6 +21,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 15
 
 security = HTTPBearer()
 
+def hash_password(password):
+    return generate_password_hash(password)
+
+def verify_password(hashed, password):
+    return check_password_hash(hashed, password)
 
 def hash_password(password: str):
     return pwd_context.hash(password)
