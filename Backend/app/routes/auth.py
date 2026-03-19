@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from jose import jwt
@@ -16,10 +16,11 @@ from app.core.security import (
 from app.database.mongo import users_collection
 
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", tags=["Auth"])
 limiter = Limiter(key_func=get_remote_address)
 
 
+# ✅ REGISTER
 @router.post("/register")
 def register(user: RegisterRequest):
 
@@ -38,6 +39,7 @@ def register(user: RegisterRequest):
     return {"message": "User registered successfully"}
 
 
+# ✅ LOGIN
 @router.post("/login")
 @limiter.limit("5/minute")
 def login(request: Request, response: Response, user: LoginRequest):
@@ -53,16 +55,35 @@ def login(request: Request, response: Response, user: LoginRequest):
     access_token = create_access_token({"sub": db_user["email"]})
     refresh_token = create_refresh_token({"sub": db_user["email"]})
 
-    response.set_cookie("access_token", access_token, httponly=True, samesite="Strict")
-    response.set_cookie("refresh_token", refresh_token, httponly=True, samesite="Strict")
+    # ✅ Store in cookies
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="Strict"
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        samesite="Strict"
+    )
 
     return {
-    "message": "Login successful"
-}
+        "message": "Login successful",
+        "access_token": access_token  # ✅ ALSO RETURN (for frontend/localStorage)
+    }
 
 
+# ✅ REFRESH TOKEN
 @router.post("/refresh")
-def refresh(refresh_token: str):
+def refresh(request: Request):
+
+    refresh_token = request.cookies.get("refresh_token")
+
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
 
     try:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -71,10 +92,11 @@ def refresh(refresh_token: str):
 
         return {"access_token": new_access}
 
-    except:
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 
+# ✅ LOGOUT
 @router.post("/logout")
 def logout(response: Response):
 
