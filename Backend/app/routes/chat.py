@@ -5,16 +5,15 @@ from app.core.security import verify_token
 from app.services.ai_service import get_ai_response
 from app.services.conversation_service import save_message, get_history
 
-
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 
 class ChatRequest(BaseModel):
     message: str
 
 
-@router.post("/chat")
-def chat(req: ChatRequest, user=Depends(verify_token)):
+@router.post("/")
+def chat(req: ChatRequest):
 
     user_email = user
 
