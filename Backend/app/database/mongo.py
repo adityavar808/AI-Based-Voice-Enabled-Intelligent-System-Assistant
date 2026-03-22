@@ -1,22 +1,27 @@
-from pymongo import MongoClient
 import os
-from dotenv import load_dotenv
 
-# ✅ Load environment variables
+from dotenv import load_dotenv
+from pymongo import MongoClient
+
 load_dotenv()
 
-MONGO_URI = os.getenv("MONGO_URI")
+MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
-# ❗ Safety check
-if not MONGO_URI:
-    raise Exception("MONGO_URI not found in .env file")
+client = None
+db = None
+users_collection = None
+conversations_collection = None
 
-# ✅ Create Mongo Client
-client = MongoClient(MONGO_URI)
-
-# ✅ Database
-db = client["zenix"]
-
-# ✅ Collections
-users_collection = db["users"]
-conversations_collection = db["conversations"]
+if MONGO_URI:
+    try:
+        client = MongoClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=2000,
+            connectTimeoutMS=2000,
+            socketTimeoutMS=2000,
+        )
+        db = client["zenix"]
+        users_collection = db["users"]
+        conversations_collection = db["conversations"]
+    except Exception as exc:
+        print(f"MongoDB unavailable, using in-memory fallback: {exc}")

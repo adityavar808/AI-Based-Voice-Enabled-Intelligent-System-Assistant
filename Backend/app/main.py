@@ -1,25 +1,16 @@
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
-from app.routes import chat
-from app.routes import auth  # ✅ ADD THIS
+from app.database.mongo import MONGO_URI, conversations_collection, users_collection
+from app.routes import auth, chat
 
+app = FastAPI(title="ZENIX Backend")
 
-
-# ✅ CREATE APP FIRST
-app = FastAPI()
-
-
-# ✅ RATE LIMITER
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 
-# ✅ JWT CONFIG
-
-
-# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,19 +19,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ ROUTES
 app.include_router(chat.router)
-app.include_router(auth.router, prefix="/auth", tags=["Auth"])  # ✅ ADD THIS
+app.include_router(auth.router)
 
-# ✅ BASIC ROUTES
+
 @app.get("/")
 def home():
     return {"message": "ZENIX FastAPI backend running"}
+
 
 @app.get("/health")
 def health_check():
     return {
         "status": "ok",
         "service": "zenix-backend",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "mongo_configured": bool(MONGO_URI),
+        "mongo_ready": conversations_collection is not None
+        and users_collection is not None,
     }

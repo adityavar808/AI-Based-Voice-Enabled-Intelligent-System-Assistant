@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import { sendMessage } from "../api/chat";
 
 const STATUS_CFG = {
   idle: {
@@ -44,20 +45,6 @@ const DEMO = [
       "Sure. Queuing lo-fi focus playlist - Deep Work Vol. 3. Estimated duration: 47 minutes. I'll keep notifications on silent until the session ends unless you say otherwise.",
   },
 ];
-
-function getChatEndpoint() {
-  const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
-
-  if (!configuredBaseUrl) {
-    return "/api/chat";
-  }
-
-  try {
-    return new URL("/api/chat", configuredBaseUrl).toString();
-  } catch {
-    return "/api/chat";
-  }
-}
 
 function useStreamText({ text, active, speed = 18 }) {
   const [displayed, setDisplayed] = useState("");
@@ -309,7 +296,6 @@ export default function ConversationBox({
   setStatus: setExternalStatus,
   entries: externalEntries,
 }) {
-  const chatEndpoint = getChatEndpoint();
   const [internalStatus, setInternalStatus] = useState("idle");
   const [internalEntries, setInternalEntries] = useState([]);
   const [demoRunning, setDemoRunning] = useState(false);
@@ -323,47 +309,33 @@ export default function ConversationBox({
   const setStatus = setExternalStatus || setInternalStatus;
 
   const sendMessageToBackend = async (message) => {
-    try {
-      setStatus("thinking");
+      try {
+        setStatus("thinking");
+        const data = await sendMessage(message);
 
-      const res = await fetch(chatEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: message,
-        }),
-      });
+        setStatus("responding");
 
-      if (!res.ok) {
-        throw new Error(`Chat API returned ${res.status}`);
-      }
+        setInternalEntries((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            type: "assistant",
+            text: data.reply,
+            time: now(),
+          },
+        ]);
 
-      const data = await res.json();
+        const timerId = setTimeout(
+          () => {
+            setStatus("listening");
+          },
+          data.reply.length * 16 + 600,
+        );
 
-      setStatus("responding");
-
-      setInternalEntries((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          type: "assistant",
-          text: data.reply,
-          time: now(),
-        },
-      ]);
-
-      const timerId = setTimeout(
-        () => {
-          setStatus("listening");
-        },
-        data.reply.length * 16 + 600,
-      );
-
-      timers.current.push(timerId);
+        timers.current.push(timerId);
     } catch {
-      const fallbackReply = `Backend unavailable. Start the API server for ${chatEndpoint}.`;
+      const fallbackReply =
+        "Backend unavailable. Start the API server on http://127.0.0.1:8000.";
 
       setStatus("responding");
       setInternalEntries((prev) => [
@@ -423,14 +395,14 @@ export default function ConversationBox({
     timers.current.forEach(clearTimeout);
     timers.current = [];
   };
-  const t = useCallback((fn, ms) => {
+  const t = (fn, ms) => {
     const id = setTimeout(fn, ms);
     timers.current.push(id);
-  }, []);
+  };
 
   useEffect(() => () => clearTimers(), []);
 
-  const runDemo = useCallback(() => {
+  const runDemo = () => {
     if (demoRunning || externalEntries !== undefined) return;
     clearTimers();
     setInternalEntries([]);
@@ -465,7 +437,7 @@ export default function ConversationBox({
       setStatus("idle");
       setDemoRunning(false);
     }, cursor);
-  }, [demoRunning, externalEntries, setStatus, t]);
+  };
 
   const resetDemo = () => {
     clearTimers();

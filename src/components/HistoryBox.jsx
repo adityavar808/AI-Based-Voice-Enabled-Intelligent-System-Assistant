@@ -1,33 +1,26 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 
 const MotionDiv = motion.div;
 
-const HistoryBox = () => {
-  const [history] = useState([
-    {
-      date: "Today",
-      items: [
-        { id: 1, text: "Turn on lights" },
-        { id: 2, text: "What's the weather today?" },
-        { id: 3, text: "Open YouTube" },
-      ],
-    },
-    {
-      date: "Yesterday",
-      items: [
-        { id: 4, text: "Play music" },
-        { id: 5, text: "Set reminder for meeting" },
-        { id: 6, text: "Tell me latest tech news" },
-      ],
-    },
-  ]);
+const FALLBACK_HISTORY = [
+  {
+    date: "System",
+    items: [
+      { id: "sample-1", text: "Turn on lights" },
+      { id: "sample-2", text: "What's the weather today?" },
+      { id: "sample-3", text: "Open YouTube" },
+    ],
+  },
+];
+
+const HistoryBox = ({ compact = false, groups = FALLBACK_HISTORY }) => {
+  const history = groups.length > 0 ? groups : FALLBACK_HISTORY;
 
   return (
     <div
       style={{
-        width: "300px",
-        height: "calc(100vh - 120px)",
+        width: compact ? "min(100%, 420px)" : "300px",
+        height: compact ? "min(60dvh, 520px)" : "calc(100dvh - 120px)",
         borderRadius: "16px",
         background: "rgba(12,18,28,0.55)",
         backdropFilter: "blur(14px)",
@@ -39,7 +32,6 @@ const HistoryBox = () => {
         overflow: "hidden",
       }}
     >
-      {/* Header */}
       <div
         style={{
           padding: "16px 18px",
@@ -53,7 +45,17 @@ const HistoryBox = () => {
         HISTORY
       </div>
 
-      {/* Scroll Area */}
+      <div
+        style={{
+          padding: "12px 14px 0",
+          fontSize: "11px",
+          color: "#64748b",
+          letterSpacing: "0.08em",
+        }}
+      >
+        Recent prompts linked to this session
+      </div>
+
       <div
         style={{
           flex: 1,
@@ -62,7 +64,7 @@ const HistoryBox = () => {
         }}
       >
         {history.map((group, index) => (
-          <div key={index} style={{ marginBottom: "20px" }}>
+          <div key={`${group.date}-${index}`} style={{ marginBottom: "20px" }}>
             <div
               style={{
                 fontSize: "10px",
@@ -101,10 +103,11 @@ const HistoryBox = () => {
                     borderRadius: "50%",
                     background: "#22c55e",
                     boxShadow: "0 0 6px #22c55e",
+                    flexShrink: 0,
                   }}
                 />
 
-                {item.text}
+                <span style={{ lineHeight: 1.5 }}>{item.text}</span>
               </MotionDiv>
             ))}
           </div>

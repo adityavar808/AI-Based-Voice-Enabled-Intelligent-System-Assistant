@@ -3,13 +3,9 @@ uvicorn
 python-dotenv
 passlib[bcrypt]
 python-jose
+python-multipart
 slowapi
 secure
 groq
 google-genai
-slowapi
-secure
-python-multipart
-passlib[bcrypt]
-python-jose
 pymongo

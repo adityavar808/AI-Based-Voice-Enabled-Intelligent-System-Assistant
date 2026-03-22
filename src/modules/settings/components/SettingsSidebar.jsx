@@ -10,15 +10,15 @@ const tabs = [
 
 export default function SettingsSidebar({ activeTab, setActiveTab }) {
   return (
-    <div className="w-72 h-full border-r border-white/10 p-6 bg-black/60 backdrop-blur-md">
-      <h2 className="text-xl font-semibold mb-8">Settings</h2>
+    <div className="w-full border-b border-white/10 bg-black/60 p-4 backdrop-blur-md lg:h-full lg:w-72 lg:flex-shrink-0 lg:border-b-0 lg:border-r lg:p-6">
+      <h2 className="mb-4 text-lg font-semibold lg:mb-8 lg:text-xl">Settings</h2>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`text-left px-4 py-3 rounded-lg transition-all ${
+            className={`rounded-lg px-4 py-3 text-left whitespace-nowrap transition-all ${
               activeTab === tab.id
                 ? "bg-blue-500/20 text-blue-400 shadow-[0_0_10px_#3b82f6]"
                 : "text-white/60 hover:bg-blue-500/10 hover:text-blue-400"
