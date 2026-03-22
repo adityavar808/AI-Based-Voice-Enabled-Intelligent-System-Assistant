@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import AuthPanel from "./AuthPanel";
 
 const MotionDiv = motion.div;
 const MotionH1 = motion.h1;
@@ -28,7 +29,14 @@ function buildFloatingParticles({ width, height }) {
   }));
 }
 
-const StartScreen = ({ setStart }) => {
+const StartScreen = ({
+  setStart,
+  authStatus,
+  authUser,
+  onLogin,
+  onRegister,
+  onLogout,
+}) => {
   const [backgroundParticles, setBackgroundParticles] = useState(() =>
     buildFloatingParticles(getViewportSize()),
   );
@@ -57,16 +65,15 @@ const StartScreen = ({ setStart }) => {
         filter: "blur(10px)",
       }}
       transition={{ duration: 0.6, ease: "easeInOut" }}
-      onClick={handleStart}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           handleStart();
         }
       }}
       tabIndex={0}
-      role="button"
-      aria-label="Click to initialize ZENIX"
-      className="relative flex h-full w-full cursor-pointer flex-col items-center justify-start overflow-hidden pt-[18vh]"
+      role="region"
+      aria-label="ZENIX initialization screen"
+      className="relative flex h-full w-full flex-col items-center justify-start overflow-x-hidden overflow-y-auto px-3 pb-8 pt-[7vh] sm:px-6 sm:pb-10 sm:pt-[10vh] lg:pt-[14vh]"
     >
       <MotionDiv
         initial={{ opacity: 0 }}
@@ -147,7 +154,7 @@ const StartScreen = ({ setStart }) => {
           damping: 15,
           delay: 0.2,
         }}
-        className="relative mb-10"
+        className="relative mb-6 sm:mb-8"
       >
         <MotionDiv
           animate={{
@@ -275,7 +282,7 @@ const StartScreen = ({ setStart }) => {
           ],
         }}
         transition={{ duration: 3, repeat: Infinity }}
-        className="relative text-5xl font-extrabold tracking-[0.4em] text-cyan-400 sm:text-6xl md:text-7xl"
+        className="relative text-center text-[clamp(2.7rem,10vw,5.2rem)] font-extrabold tracking-[0.18em] text-cyan-400 sm:tracking-[0.28em]"
       >
         ZENIX
         <MotionSpan
@@ -302,29 +309,40 @@ const StartScreen = ({ setStart }) => {
       </MotionH1>
 
       <MotionDiv
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.55 }}
+        className="relative z-20 mt-3 text-center sm:mt-4"
+      >
+        <p className="text-xs uppercase tracking-[0.24em] text-cyan-300/65 sm:text-sm sm:tracking-[0.34em]">
+          Voice Enabled Intelligent System Assistant
+        </p>
+        <p className="mt-3 max-w-2xl px-2 text-sm leading-6 text-slate-300/75 sm:leading-7">
+          Authenticate to unlock persistent chat memory, or continue in guest
+          mode for a local session.
+        </p>
+      </MotionDiv>
+
+      <AuthPanel
+        authStatus={authStatus}
+        authUser={authUser}
+        onLogin={onLogin}
+        onRegister={onRegister}
+        onLogout={onLogout}
+        onStart={handleStart}
+      />
+
+      <MotionDiv
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.6 }}
-        className="absolute bottom-16 sm:bottom-24"
+        transition={{ delay: 1.4 }}
+        className="pointer-events-none relative z-20 mt-4 px-3 pb-2 text-center text-[11px] uppercase tracking-[0.14em] text-cyan-400/45 sm:mt-5 sm:text-xs sm:tracking-[0.22em]"
       >
-        <MotionDiv
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 1.8, repeat: Infinity }}
-          className="relative rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 backdrop-blur-sm sm:px-6 sm:py-3"
-        >
-          <span className="text-sm font-medium tracking-[0.2em] text-cyan-400/90 sm:text-base">
-            CLICK TO INITIALIZE
-          </span>
-          <MotionDiv
-            animate={{ y: ["-100%", "100%"] }}
-            transition={{
-              duration: 4,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-            className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_20px_#00f7ff]"
-          />
-        </MotionDiv>
+        {authStatus === "loading"
+          ? "Synchronizing session..."
+          : authUser
+            ? `Authenticated as ${authUser.email}`
+            : "Guest mode keeps chat only for this browser session"}
       </MotionDiv>
 
       <MotionDiv

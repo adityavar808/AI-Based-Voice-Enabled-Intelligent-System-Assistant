@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 const MotionDiv = motion.div;
 const MotionSvg = motion.svg;
@@ -36,6 +36,15 @@ function getSharedMediaElementSourceMap() {
 function averageLevel(data) {
   if (!data?.length) return 0;
   return data.reduce((total, value) => total + value, 0) / data.length;
+}
+
+function safeDisconnect(node) {
+  if (!node) return;
+  try {
+    node.disconnect();
+  } catch (error) {
+    console.warn("Audio node disconnect failed:", error);
+  }
 }
 
 function buildParticles(size) {
@@ -93,10 +102,10 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (monitorFrameRef.current) cancelAnimationFrame(monitorFrameRef.current);
 
-      audioElementSourceRef.current?.disconnect();
-      audioAnalyserRef.current?.disconnect();
-      micSourceRef.current?.disconnect();
-      micAnalyserRef.current?.disconnect();
+      safeDisconnect(audioElementSourceRef.current);
+      safeDisconnect(audioAnalyserRef.current);
+      safeDisconnect(micSourceRef.current);
+      safeDisconnect(micAnalyserRef.current);
       micStreamRef.current?.getTracks().forEach((track) => track.stop());
 
       audioElementSourceRef.current = null;
@@ -170,8 +179,8 @@ function OrbCore({ isSpeaking = false, audioLevel = 0, audioRef }) {
             sourceMap.set(audioElement, source);
           }
 
-          try { source.disconnect(); } catch {}
-          try { audioAnalyserRef.current.disconnect(); } catch {}
+          safeDisconnect(source);
+          safeDisconnect(audioAnalyserRef.current);
 
           source.connect(audioAnalyserRef.current);
           audioAnalyserRef.current.connect(context.destination);

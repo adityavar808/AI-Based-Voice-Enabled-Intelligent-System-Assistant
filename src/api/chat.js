@@ -1,19 +1,67 @@
-export async function sendMessage(message) {
+import { getApiUrl } from "./base";
 
-  const token = localStorage.getItem("token");
+function normalizeApiErrorMessage(detail, fallbackMessage) {
+  if (!detail) return fallbackMessage;
+  if (typeof detail === "string") return detail;
 
-  const res = await fetch("http://127.0.0.1:8000/api/chat", {
+  if (Array.isArray(detail)) {
+    const first = detail[0];
+    if (typeof first === "string") return first;
+    if (first && typeof first === "object") {
+      if (typeof first.msg === "string") return first.msg;
+      if (typeof first.message === "string") return first.message;
+    }
+  }
+
+  if (typeof detail === "object") {
+    if (typeof detail.msg === "string") return detail.msg;
+    if (typeof detail.message === "string") return detail.message;
+  }
+
+  return fallbackMessage;
+}
+
+async function parseApiResponse(res) {
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const error = new Error(
+      normalizeApiErrorMessage(
+        data.detail,
+        `Request failed with status ${res.status}`,
+      ),
+    );
+    error.status = res.status;
+    error.data = data;
+    throw error;
+  }
+
+  return data;
+}
+
+export async function sendMessage(message, { history = [], token } = {}) {
+  const authToken = token || null;
+  const res = await fetch(getApiUrl("/api/chat"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     },
     body: JSON.stringify({
-      message
-    })
+      message,
+      history,
+    }),
   });
 
-  const data = await res.json();
+  return parseApiResponse(res);
+}
 
-  return data;
+export async function getConversationHistory({ token }) {
+  const res = await fetch(getApiUrl("/api/history"), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return parseApiResponse(res);
 }

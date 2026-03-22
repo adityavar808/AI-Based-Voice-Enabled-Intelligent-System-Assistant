@@ -1,19 +1,18 @@
-<<<<<<< HEAD
 # Node
 node_modules/
 dist/
-=======
-node_modules
-dist
-dist-ssr
+dist-ssr/
 *.local
-Zenix-Backend/
-.env
+
+# Python
+venv/
 __pycache__/
 *.pyc
->>>>>>> a0148a31ba44a3d065472ebe2a315f4376266cc3
+.env
 
-venv/
+# Project-specific
+Zenix-Backend/
+*.log
 
 # OS
 .DS_Store

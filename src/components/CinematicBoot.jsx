@@ -10,6 +10,7 @@ function CinematicBoot({
   audioLevel,
   audioRef,
   setIsOrbReady,
+  compact = false,
 }) {
   const [bootPhase, setBootPhase] = useState("initializing");
 
@@ -32,7 +33,7 @@ function CinematicBoot({
 
   if (bootPhase === "initializing" || bootPhase === "booting") {
     return (
-      <div className="relative w-full h-screen bg-black overflow-hidden text-cyan-400">
+      <div className="relative h-[100dvh] w-full overflow-hidden bg-black text-cyan-400">
         {/* Background Glow */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#001f2f_0%,#000000_70%)]" />
 
@@ -59,12 +60,18 @@ function CinematicBoot({
         />
 
         {/* Main Layout */}
-        <div className="relative w-full h-full flex items-center justify-center gap-16 px-10">
+        <div
+          className={`relative flex h-full w-full ${
+            compact
+              ? "flex-col justify-center gap-6 px-4 py-24"
+              : "items-center justify-center gap-16 px-10"
+          }`}
+        >
           <MotionDiv
             initial={{ opacity: 0, x: -100 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 1, duration: 1 }}
-            className="w-[40%] max-w-2xl"
+            className={compact ? "w-full max-w-xl" : "w-[40%] max-w-2xl"}
           >
             <SystemLogs />
           </MotionDiv>
@@ -73,11 +80,13 @@ function CinematicBoot({
             initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 1.2, duration: 1 }}
-            className="w-[30%] rounded-2xl p-6 
+            className={`rounded-2xl p-6 
               bg-gradient-to-br from-slate-900/60 to-slate-800/30
               border border-cyan-400/30 
               backdrop-blur-xl 
-              shadow-[0_0_40px_rgba(0,247,255,0.15)]"
+              shadow-[0_0_40px_rgba(0,247,255,0.15)] ${
+                compact ? "w-full max-w-xl" : "w-[30%]"
+              }`}
           >
             <h2 className="text-lg font-semibold tracking-wider mb-6 text-cyan-400">
               SYSTEM MONITOR
@@ -126,7 +135,9 @@ function CinematicBoot({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 2 }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 text-sm tracking-widest text-cyan-400/60 font-mono"
+          className={`absolute left-1/2 -translate-x-1/2 text-sm tracking-widest text-cyan-400/60 font-mono ${
+            compact ? "bottom-6" : "bottom-10"
+          }`}
         >
           ZENIX AI BOOTING...
         </MotionDiv>
