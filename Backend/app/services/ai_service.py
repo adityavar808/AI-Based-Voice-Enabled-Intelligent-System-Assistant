@@ -12,6 +12,15 @@ if GROQ_API_KEY:
 else:
     client = None
 
+GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+# Only initialize Google Speech if credentials exist
+if GOOGLE_CREDENTIALS_PATH and os.path.exists(GOOGLE_CREDENTIALS_PATH):
+    from google.cloud import speech
+    speech_client = speech.SpeechClient()
+else:
+    speech_client = None
+
 
 ZENIX_SYSTEM_PROMPT = """You are Zenix, an advanced AI voice assistant. You are:
 Concise and direct because responses are spoken aloud.
@@ -59,3 +68,26 @@ def get_ai_response(message: str, history: list = None) -> str:
     )
 
     return chat_completion.choices[0].message.content.strip()
+
+
+def transcribe_audio(audio_bytes: bytes) -> str:
+    if speech_client is None:
+        return "Google Cloud credentials not configured"
+    
+    from google.cloud import speech
+    
+    audio = speech.RecognitionAudio(content=audio_bytes)
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
+        sample_rate_hertz=48000,  # Adjust based on MediaRecorder settings
+        language_code="en-US",
+    )
+    
+    try:
+        response = speech_client.recognize(config=config, audio=audio)
+        if response.results:
+            return response.results[0].alternatives[0].transcript
+        else:
+            return "No speech detected"
+    except Exception as e:
+        return f"Transcription failed: {str(e)}"

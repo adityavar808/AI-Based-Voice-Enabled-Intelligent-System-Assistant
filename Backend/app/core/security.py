@@ -16,7 +16,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str):
@@ -53,6 +53,8 @@ def create_refresh_token(data: dict):
 
     return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
 def verify_token(credentials = Depends(security)):
+    if credentials is None:
+        return None
 
     token = credentials.credentials
 

@@ -13,3 +13,4 @@ secure
 python-multipart
 passlib[bcrypt]
 python-jose
+google-cloud-speech

@@ -105,12 +105,12 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
   const stopListening = useCallback(() => {
     const r = recognitionRef.current;
     if (!r) return;
-    r.onstart = null;
-    r.onresult = null;
-    r.onerror = null;
-    r.onend = null;
     try {
-      r.abort();
+      if (r.stop) {
+        r.stop();
+      } else {
+        r.abort();
+      }
     } catch {}
     recognitionRef.current = null;
   }, []);
@@ -193,7 +193,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
     [chatEndpoint, speak],
   );
 
-  // ── STT ───────────────────────────────────────────────────────────────────
+  // ── STT (free browser mode using Web Speech API) ─────────────────────────
   const startListening = useCallback(() => {
     if (isPlayingRef.current || isTtsActiveRef.current) return;
     if (recognitionRef.current) return;
@@ -201,24 +201,28 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
 
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      setAudioError("Speech Recognition not supported in this browser.");
+      return;
+    }
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
+
     recognition.lang = "en-US";
-    recognition.continuous = false; // continuous=true: WE control when to stop
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
     let interimEntry = null;
-    let silenceTimer = null; // fires when user stops speaking
-    let latestTranscript = ""; // accumulates the full sentence
+    let silenceTimer = null;
+    let latestTranscript = "";
     let committed = false;
 
     hasFinalResultRef.current = false;
 
     const killAndCommit = () => {
-      if (hasFinalResultRef.current) return; // 🔥 prevents duplicate user message
+      if (hasFinalResultRef.current) return;
       hasFinalResultRef.current = true;
 
       if (committed) return;
@@ -236,6 +240,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
       try {
         recognition.abort();
       } catch {}
+
       recognitionRef.current = null;
 
       if (!latestTranscript) return;
@@ -294,20 +299,9 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
       sendToBackend(latestTranscript);
     };
 
-    recognition.onstart = () => {
-      if (isPlayingRef.current || isTtsActiveRef.current) {
-        recognition.abort();
-        return;
-      }
-      setConversationStatus("listening");
-    };
-
     recognition.onresult = (event) => {
-      if (isPlayingRef.current || isTtsActiveRef.current) {
-        return;
-      }
+      if (isPlayingRef.current || isTtsActiveRef.current) return;
 
-      // Build full transcript from ALL results so far
       let fullTranscript = "";
       for (let i = 0; i < event.results.length; i++) {
         fullTranscript += event.results[i][0].transcript;
@@ -319,10 +313,8 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
 
       if (!fullTranscript) return;
 
-      // Always store latest
       latestTranscript = fullTranscript;
 
-      // Update live interim display
       setConversationEntries((prev) => {
         const existingInterim =
           prev.find((entry) => entry.type === "user" && entry.interim) ||
@@ -334,6 +326,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
             e.id === existingInterim.id ? { ...e, text: fullTranscript } : e,
           );
         }
+
         const entry = {
           id: nanoid(),
           type: "user",
@@ -347,7 +340,6 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
       });
 
       if (isFinal) {
-        // Reset silence timer on every final — commit only after 800ms of silence
         if (silenceTimer) clearTimeout(silenceTimer);
         silenceTimer = setTimeout(killAndCommit, 800);
       }
@@ -364,7 +356,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
 
     recognition.onend = () => {
       if (recognitionRef.current === recognition) recognitionRef.current = null;
-      if (silenceTimer) return; // commit timer still running — let it fire
+      if (silenceTimer) return;
 
       if (interimEntry && !committed) {
         setConversationEntries((prev) =>
@@ -390,7 +382,7 @@ const Home = ({ start, setStart, openSettings, isOrbReady, setIsOrbReady }) => {
     } catch (e) {
       console.warn("Could not start recognition:", e);
     }
-  }, [clearTimers, queueListeningRestart, sendToBackend, stopListening]); // eslint-disable-line
+  }, [clearTimers, queueListeningRestart, sendToBackend, stopListening]);
 
   useEffect(() => {
     startListeningRef.current = startListening;
