@@ -1,4 +1,102 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
+
+const SETTINGS_STORAGE_KEY = "zenix-settings";
+const VOICE_KEYWORDS = {
+  male: [
+    "male",
+    "man",
+    "david",
+    "daniel",
+    "alex",
+    "aaron",
+    "fred",
+    "mark",
+    "guy",
+    "james",
+  ],
+  female: [
+    "female",
+    "woman",
+    "samantha",
+    "zira",
+    "aria",
+    "ava",
+    "eva",
+    "victoria",
+    "karen",
+    "serena",
+    "susan",
+  ],
+};
+
+function getStoredVoiceProfile() {
+  if (typeof window === "undefined") return "auto";
+
+  try {
+    const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!savedSettings) return "auto";
+
+    const parsed = JSON.parse(savedSettings);
+    return parsed?.voice?.profile || "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+function scoreVoice(voice, preferredProfile) {
+  const name = voice.name.toLowerCase();
+  let score = 0;
+
+  if (voice.lang?.toLowerCase().startsWith("en")) score += 4;
+  if (voice.default) score += 2;
+
+  if (
+    name.includes("google") ||
+    name.includes("natural") ||
+    name.includes("neural") ||
+    name.includes("enhanced")
+  ) {
+    score += 2;
+  }
+
+  if (preferredProfile !== "auto") {
+    if (
+      VOICE_KEYWORDS[preferredProfile].some((keyword) => name.includes(keyword))
+    ) {
+      score += 8;
+    }
+
+    const oppositeProfile = preferredProfile === "male" ? "female" : "male";
+    if (
+      VOICE_KEYWORDS[oppositeProfile].some((keyword) => name.includes(keyword))
+    ) {
+      score -= 3;
+    }
+  }
+
+  return score;
+}
+
+function getPreferredVoice(voices, preferredProfile) {
+  if (!voices.length) return null;
+
+  const rankedVoices = [...voices].sort(
+    (a, b) => scoreVoice(b, preferredProfile) - scoreVoice(a, preferredProfile)
+  );
+
+  return rankedVoices[0] || null;
+}
+
+function getVoiceTuning(preferredProfile) {
+  switch (preferredProfile) {
+    case "male":
+      return { rate: 0.9, pitch: 0.75 };
+    case "female":
+      return { rate: 0.95, pitch: 1.05 };
+    default:
+      return { rate: 0.9, pitch: 0.9 };
+  }
+}
 
 /**
  * useSpeechOutput
@@ -9,7 +107,6 @@ export function useSpeechOutput({ onSpeakStart, onSpeakEnd } = {}) {
   const utteranceRef = useRef(null);
   const isSpeakingRef = useRef(false);
 
-  // Cancel any ongoing speech
   const cancelSpeech = useCallback(() => {
     if (typeof window === "undefined") return;
     window.speechSynthesis?.cancel();
@@ -17,7 +114,6 @@ export function useSpeechOutput({ onSpeakStart, onSpeakEnd } = {}) {
     utteranceRef.current = null;
   }, []);
 
-  // Speak a given text string
   const speak = useCallback(
     (text, onEnd) => {
       if (typeof window === "undefined") return;
@@ -27,27 +123,16 @@ export function useSpeechOutput({ onSpeakStart, onSpeakEnd } = {}) {
         return;
       }
 
-      // Cancel any in-progress speech first
       cancelSpeech();
 
       const utterance = new SpeechSynthesisUtterance(text);
+      const preferredProfile = getStoredVoiceProfile();
+      const { rate, pitch } = getVoiceTuning(preferredProfile);
+
       utteranceRef.current = utterance;
-
-      // Voice configuration — pick a natural English voice if available
-      const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find(
-        (v) =>
-          v.lang.startsWith("en") &&
-          (v.name.toLowerCase().includes("google") ||
-            v.name.toLowerCase().includes("natural") ||
-            v.name.toLowerCase().includes("samantha") ||
-            v.name.toLowerCase().includes("daniel"))
-      );
-      if (preferred) utterance.voice = preferred;
-
       utterance.lang = "en-US";
-      utterance.rate = 0.90; // Slightly slower than default — more "AI assistant" feel
-      utterance.pitch = 0.7; // Slightly lower pitch for Zenix's character
+      utterance.rate = rate;
+      utterance.pitch = pitch;
       utterance.volume = 1.0;
 
       utterance.onstart = () => {
@@ -63,7 +148,6 @@ export function useSpeechOutput({ onSpeakStart, onSpeakEnd } = {}) {
       };
 
       utterance.onerror = (event) => {
-        // "interrupted" fires when we cancel deliberately — not a real error
         if (event.error === "interrupted" || event.error === "canceled") return;
         console.warn("TTS error:", event.error);
         isSpeakingRef.current = false;
@@ -72,16 +156,61 @@ export function useSpeechOutput({ onSpeakStart, onSpeakEnd } = {}) {
         if (onEnd) onEnd();
       };
 
-      // Chrome bug: voices may not be loaded yet on first call
-      // Small delay ensures voices are ready
-      setTimeout(() => {
+      const startSpeech = () => {
+        if (utteranceRef.current !== utterance) return;
+
+        const preferredVoice = getPreferredVoice(
+          window.speechSynthesis.getVoices(),
+          preferredProfile
+        );
+
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+          utterance.lang = preferredVoice.lang || "en-US";
+        }
+
         window.speechSynthesis.speak(utterance);
-      }, 50);
+      };
+
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) {
+        let hasStarted = false;
+
+        const safeStart = () => {
+          if (hasStarted) return;
+          hasStarted = true;
+          startSpeech();
+        };
+
+        const handleVoicesChanged = () => {
+          window.speechSynthesis.removeEventListener?.(
+            "voiceschanged",
+            handleVoicesChanged
+          );
+          safeStart();
+        };
+
+        window.speechSynthesis.addEventListener?.(
+          "voiceschanged",
+          handleVoicesChanged
+        );
+
+        setTimeout(() => {
+          window.speechSynthesis.removeEventListener?.(
+            "voiceschanged",
+            handleVoicesChanged
+          );
+          safeStart();
+        }, 150);
+
+        return;
+      }
+
+      setTimeout(startSpeech, 50);
     },
-    [cancelSpeech, onSpeakStart, onSpeakEnd],
+    [cancelSpeech, onSpeakEnd, onSpeakStart]
   );
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       cancelSpeech();
