@@ -1,10 +1,10 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.security import get_optional_user, verify_token
-from app.services.ai_service import get_ai_response
+from app.services.ai_service import get_ai_response, transcribe_audio
 from app.services.conversation_service import get_history, save_message
 
 router = APIRouter(prefix="/api", tags=["Chat"])
@@ -37,3 +37,13 @@ def chat(req: ChatRequest, user=Depends(get_optional_user)):
 def history(user=Depends(verify_token), limit: int = Query(default=40, ge=1, le=200)):
     messages = get_history(user)
     return {"items": messages[-limit:]}
+
+
+@router.post("/transcribe")
+def transcribe(file: UploadFile = File(...)):
+    try:
+        audio_bytes = file.file.read()
+        transcript = transcribe_audio(audio_bytes)
+        return {"transcript": transcript}
+    except Exception as exc:
+        return {"error": str(exc)}

@@ -8,4 +8,5 @@ slowapi
 secure
 groq
 google-genai
+google-cloud-speech
 pymongo
