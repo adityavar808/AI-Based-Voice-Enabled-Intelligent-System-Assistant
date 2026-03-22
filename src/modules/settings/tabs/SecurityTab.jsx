@@ -1,6 +1,6 @@
 import SettingsCard from "../components/SettingsCard";
 
-export default function SecurityTab({ settings, setSettings }) {
+export default function SecurityTab({ settings, setSettings, resetToDefault }) {
   const { micAccess } = settings.security;
 
   return (
@@ -56,14 +56,7 @@ export default function SecurityTab({ settings, setSettings }) {
               );
 
               if (confirmed) {
-                setSettings({
-                  ai: { model: "zenix-core", temperature: 0.7 },
-                  security: { micAccess: true },
-                  memory: { enabled: true },
-                  voice: { sensitivity: 50 },
-                  appearance: { darkMode: true },
-                  developer: { debug: false },
-                });
+                resetToDefault();
               }
             }}
             className="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600 transition"

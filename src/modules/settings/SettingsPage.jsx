@@ -25,7 +25,7 @@ export default function SettingsPage({ onClose }) {
         googleDrive: false,
         slack: false,
       },
-      voice: { sensitivity: 50 },
+      voice: { sensitivity: 50, profile: "auto" },
       appearance: { darkMode: true },
       developer: { debug: false },
     }),
@@ -45,6 +45,10 @@ export default function SettingsPage({ onClose }) {
         integrations: {
           ...defaultSettings.integrations,
           ...(parsed.integrations || {}),
+        },
+        voice: {
+          ...defaultSettings.voice,
+          ...(parsed.voice || {}),
         },
       };
     } catch {
