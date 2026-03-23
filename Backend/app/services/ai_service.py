@@ -7,6 +7,11 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+GROQ_PRIMARY_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+_fallback_models_raw = os.getenv("GROQ_FALLBACK_MODELS", "llama-3.1-8b-instant")
+GROQ_FALLBACK_MODELS = [model.strip() for model in _fallback_models_raw.split(",") if model.strip()]
+GROQ_TEMPERATURE = float(os.getenv("GROQ_TEMPERATURE", "0.6"))
+GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "320"))
 
 if GROQ_API_KEY:
     from groq import Groq
@@ -36,6 +41,11 @@ Speak naturally as if talking to a person.
 If you don't know something say so briefly.
 Keep responses conversational and easy to listen to."""
 
+GROQ_QUALITY_GUARD = (
+    "Give a direct and useful answer to the user's exact question. "
+    "Do not give generic filler lines. If the request is unclear, ask one short clarifying question."
+)
+
 
 def _sanitize_history(history):
     sanitized = []
@@ -54,6 +64,27 @@ def _normalize(text: str):
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
+def _looks_like_hinglish(text: str):
+    tokens = set(re.findall(r"[a-zA-Z]+", text.lower()))
+    common_hinglish = {
+        "gadi",
+        "gaadi",
+        "wala",
+        "kya",
+        "kaise",
+        "kyu",
+        "acha",
+        "accha",
+        "bhai",
+        "bhaiya",
+        "chahiye",
+        "help",
+        "batao",
+        "samjhao",
+    }
+    return bool(tokens & common_hinglish)
+
+
 def _last_user_messages(conversation):
     return [
         entry["content"]
@@ -62,8 +93,54 @@ def _last_user_messages(conversation):
     ][-3:]
 
 
+def _extract_groq_text(chat_completion) -> str:
+    try:
+        choice = chat_completion.choices[0]
+        message = getattr(choice, "message", None)
+        content = getattr(message, "content", "")
+        return content.strip() if isinstance(content, str) else ""
+    except Exception:
+        return ""
+
+
+def _is_weak_response(text: str) -> bool:
+    normalized = _normalize(text)
+    if not normalized:
+        return True
+
+    weak_patterns = [
+        "i can help with explanations",
+        "ask a specific question",
+        "share your expected output",
+        "i am running in local assistant mode",
+        "i am in local assistant mode",
+    ]
+    if any(pattern in normalized for pattern in weak_patterns):
+        return True
+
+    return len(normalized) < 12
+
+
+def _build_groq_messages(message: str, conversation):
+    messages = [{"role": "system", "content": ZENIX_SYSTEM_PROMPT}]
+    messages.append({"role": "system", "content": GROQ_QUALITY_GUARD})
+
+    if _looks_like_hinglish(message):
+        messages.append(
+            {
+                "role": "system",
+                "content": "User may be speaking in Hinglish. Respond naturally in simple Hinglish.",
+            }
+        )
+
+    messages.extend(conversation)
+    messages.append({"role": "user", "content": message})
+    return messages
+
+
 def _local_fallback_response(message: str, history):
     normalized = _normalize(message)
+    raw_message = message.strip()
     recent_user_messages = _last_user_messages(history)
     recent_topic = recent_user_messages[-1] if recent_user_messages else None
 
@@ -119,6 +196,29 @@ def _local_fallback_response(message: str, history):
             "software systems to communicate with each other through requests and responses."
         )
 
+    if normalized.startswith("what is "):
+        topic = message.strip()[8:].strip(" ?.!")
+        if topic:
+            return (
+                f"{topic} is best understood by looking at what it is, why it is used, "
+                f"and one practical example. If you want, I can explain {topic} in simple terms "
+                "or in a technical way."
+            )
+
+    if normalized.startswith("how to ") or normalized.startswith("how do i "):
+        action = message.strip().strip(" ?.!")
+        return (
+            f"To help with '{action}', I can give you step-by-step instructions. "
+            "Tell me your stack or context and I will provide exact steps."
+        )
+
+    if re.search(r"\b(gadi|gaadi|car|bike|vehicle)\b", normalized):
+        return (
+            "Agar aap vehicle related help chahte ho, main assist kar sakta hoon. "
+            "Aap batao: 1) buy karni hai, 2) sell karni hai, 3) service/repair issue hai, "
+            "ya 4) document/insurance help chahiye."
+        )
+
     if normalized.startswith("explain "):
         topic = message.strip()[8:].strip(" ?.!")
         if topic:
@@ -134,15 +234,27 @@ def _local_fallback_response(message: str, history):
             "question about it and I can give a clearer answer."
         )
 
+    if len(normalized.split()) <= 3:
+        if _looks_like_hinglish(raw_message):
+            return (
+                f"Mujhe '{raw_message}' mila. Thoda context do taaki main exact help kar paun. "
+                "Example: price range, city, aur aapko kya chahiye."
+            )
+        return (
+            f"I got '{raw_message}'. Please add one line of context so I can give a useful answer "
+            "instead of a generic one."
+        )
+
     if normalized.endswith("?"):
         return (
-            "I can still help in local mode, but I need a more specific question to "
-            "give a strong answer. Ask about AI, coding, React, Python, APIs, or your Zenix project."
+            f"You asked: '{raw_message}'. I am in local assistant mode right now, "
+            "so I may be brief. I can still help if you share one more detail about your goal "
+            "or project context."
         )
 
     return (
-        "I can help with explanations, coding guidance, and project questions. "
-        "Ask a specific question and I will answer directly."
+        f"I received: '{raw_message}'. I am running in local assistant mode, but I can still "
+        "help with coding, explanations, and project guidance. Share your expected output and I will answer directly."
     )
 
 
@@ -152,21 +264,33 @@ def get_ai_response(message: str, history=None):
     if client is None:
         return _local_fallback_response(message, conversation)
 
-    messages = [{"role": "system", "content": ZENIX_SYSTEM_PROMPT}]
-    messages.extend(conversation)
-    messages.append({"role": "user", "content": message})
+    messages = _build_groq_messages(message, conversation)
+    model_candidates = [GROQ_PRIMARY_MODEL, *GROQ_FALLBACK_MODELS]
+    seen_models = set()
+    errors = []
 
-    try:
-        chat_completion = client.chat.completions.create(
-            messages=messages,
-            model="llama-3.1-8b-instant",
-            temperature=0.7,
-            max_tokens=256,
-        )
-        return chat_completion.choices[0].message.content.strip()
-    except Exception as exc:
-        print(f"Groq request failed: {exc}")
-        return _local_fallback_response(message, conversation)
+    for model_name in model_candidates:
+        if model_name in seen_models:
+            continue
+        seen_models.add(model_name)
+
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=messages,
+                model=model_name,
+                temperature=GROQ_TEMPERATURE,
+                max_tokens=GROQ_MAX_TOKENS,
+            )
+            response_text = _extract_groq_text(chat_completion)
+            if not _is_weak_response(response_text):
+                return response_text
+            errors.append(f"{model_name}: weak_response")
+        except Exception as exc:
+            errors.append(f"{model_name}: {exc}")
+
+    if errors:
+        print("Groq request failed across models:", " | ".join(errors))
+    return _local_fallback_response(message, conversation)
 
 
 def transcribe_audio(audio_bytes: bytes) -> str:
