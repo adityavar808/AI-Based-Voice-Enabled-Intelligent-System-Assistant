@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { sendMessage } from "../api/chat";
-
+// Status configuration for different conversation states
 const STATUS_CFG = {
   idle: {
     label: "IDLE",
