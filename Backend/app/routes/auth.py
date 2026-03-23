@@ -10,7 +10,7 @@ from app.core.security import (
     verify_password,
     verify_token,
 )
-from app.database.mongo import users_collection
+from app.database.mongo import MONGO_URI, users_collection
 
 router = APIRouter(prefix="/api", tags=["Auth"])
 
@@ -65,7 +65,18 @@ def _get_user(email: str):
         try:
             return users_collection.find_one({"email": normalized_email})
         except Exception as exc:
+            if MONGO_URI:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"MongoDB user lookup failed: {exc}",
+                ) from exc
             print(f"User lookup failed, using memory fallback: {exc}")
+
+    if MONGO_URI:
+        raise HTTPException(
+            status_code=503,
+            detail="MongoDB is configured but unavailable. Check Atlas URI/network access.",
+        )
 
     return _memory_users.get(normalized_email)
 
@@ -80,14 +91,21 @@ def _save_user(email: str, hashed_password: str, name: str | None = None):
 
     if users_collection is not None:
         try:
-            users_collection.update_one(
-                {"email": normalized_email},
-                {"$set": document},
-                upsert=True,
-            )
+            users_collection.insert_one(document)
             return
         except Exception as exc:
+            if MONGO_URI:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"MongoDB user persistence failed: {exc}",
+                ) from exc
             print(f"User persistence failed, using memory fallback: {exc}")
+
+    if MONGO_URI:
+        raise HTTPException(
+            status_code=503,
+            detail="MongoDB is configured but unavailable. Check Atlas URI/network access.",
+        )
 
     _memory_users[normalized_email] = document
 
@@ -104,6 +122,12 @@ def _build_auth_response(user_document: dict[str, Any] | None, email: str):
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(req: AuthRequest):
+    if MONGO_URI and users_collection is None:
+        raise HTTPException(
+            status_code=503,
+            detail="MongoDB is configured but unavailable. Check Atlas URI/network access.",
+        )
+
     normalized_email = req.email.strip().lower()
     existing_user = _get_user(normalized_email)
 
@@ -119,6 +143,12 @@ def register(req: AuthRequest):
 
 @router.post("/login")
 def login(req: AuthRequest):
+    if MONGO_URI and users_collection is None:
+        raise HTTPException(
+            status_code=503,
+            detail="MongoDB is configured but unavailable. Check Atlas URI/network access.",
+        )
+
     normalized_email = req.email.strip().lower()
     user = _get_user(normalized_email)
 
