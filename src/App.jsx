@@ -26,8 +26,8 @@ function App() {
     setAuthState({
       status: "authenticated",
       user: session.user,
-      accessToken: session.access_token,
-      refreshToken: session.refresh_token,
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
     });
   }, []);
 
@@ -87,8 +87,8 @@ function App() {
   );
 
   const handleRegister = useCallback(
-    async (email, password) => {
-      const session = await register(email, password);
+    async (name, email, password) => {
+      const session = await register(name, email, password);
       applySession(session);
       return session;
     },

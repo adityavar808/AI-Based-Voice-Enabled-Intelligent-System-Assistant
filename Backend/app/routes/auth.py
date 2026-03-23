@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
@@ -16,8 +18,21 @@ _memory_users = {}
 
 
 class AuthRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=60)
     email: str
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=6, max_length=128)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None):
+        if value is None:
+            return None
+
+        normalized = value.strip()
+        if not normalized:
+            return None
+
+        return normalized
 
     @field_validator("email")
     @classmethod
@@ -29,6 +44,18 @@ class AuthRequest(BaseModel):
             raise ValueError("Enter a valid email address")
 
         return normalized
+
+
+def _fallback_name(email: str):
+    local_part = email.split("@", 1)[0].replace(".", " ").replace("_", " ")
+    return " ".join(part.capitalize() for part in local_part.split()) or "Zenix User"
+
+
+def _public_user(document: dict[str, Any] | None, email: str):
+    return {
+        "email": email,
+        "name": (document or {}).get("name") or _fallback_name(email),
+    }
 
 
 def _get_user(email: str):
@@ -43,9 +70,13 @@ def _get_user(email: str):
     return _memory_users.get(normalized_email)
 
 
-def _save_user(email: str, hashed_password: str):
+def _save_user(email: str, hashed_password: str, name: str | None = None):
     normalized_email = email.strip().lower()
-    document = {"email": normalized_email, "password": hashed_password}
+    document = {
+        "email": normalized_email,
+        "password": hashed_password,
+        "name": name or _fallback_name(normalized_email),
+    }
 
     if users_collection is not None:
         try:
@@ -61,13 +92,13 @@ def _save_user(email: str, hashed_password: str):
     _memory_users[normalized_email] = document
 
 
-def _build_auth_response(email: str):
+def _build_auth_response(user_document: dict[str, Any] | None, email: str):
     payload = {"sub": email, "email": email}
     return {
         "access_token": create_access_token(payload),
         "refresh_token": create_refresh_token(payload),
         "token_type": "bearer",
-        "user": {"email": email},
+        "user": _public_user(user_document, email),
     }
 
 
@@ -79,8 +110,11 @@ def register(req: AuthRequest):
     if existing_user:
         raise HTTPException(status_code=409, detail="User already exists")
 
-    _save_user(normalized_email, hash_password(req.password))
-    return _build_auth_response(normalized_email)
+    _save_user(normalized_email, hash_password(req.password), req.name)
+    return _build_auth_response(
+        {"email": normalized_email, "name": req.name or _fallback_name(normalized_email)},
+        normalized_email,
+    )
 
 
 @router.post("/login")
@@ -91,10 +125,11 @@ def login(req: AuthRequest):
     if not user or not verify_password(req.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    return _build_auth_response(normalized_email)
+    return _build_auth_response(user, normalized_email)
 
 
 @router.get("/me")
 def me(user=Depends(verify_token)):
     email = user if isinstance(user, str) else user.get("email") or user.get("sub")
-    return {"email": email}
+    stored_user = _get_user(email) if email else None
+    return _public_user(stored_user, email)
