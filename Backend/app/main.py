@@ -3,7 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from app.database.mongo import MONGO_URI, conversations_collection, users_collection
+from app.database.mongo import (
+    MONGO_URI,
+    conversations_collection,
+    mongo_error,
+    users_collection,
+)
 from app.routes import auth, chat
 
 app = FastAPI(title="ZENIX Backend")
@@ -37,4 +42,5 @@ def health_check():
         "mongo_configured": bool(MONGO_URI),
         "mongo_ready": conversations_collection is not None
         and users_collection is not None,
+        "mongo_error": mongo_error,
     }
