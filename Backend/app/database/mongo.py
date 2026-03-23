@@ -11,6 +11,7 @@ client = None
 db = None
 users_collection = None
 conversations_collection = None
+mongo_error = None
 
 if MONGO_URI:
     try:
@@ -20,8 +21,15 @@ if MONGO_URI:
             connectTimeoutMS=2000,
             socketTimeoutMS=2000,
         )
+        # Force an early connectivity/auth check so health status is accurate.
+        client.admin.command("ping")
         db = client["zenix"]
         users_collection = db["users"]
         conversations_collection = db["conversations"]
     except Exception as exc:
+        mongo_error = str(exc)
+        client = None
+        db = None
+        users_collection = None
+        conversations_collection = None
         print(f"MongoDB unavailable, using in-memory fallback: {exc}")
