@@ -690,7 +690,9 @@ const Home = ({
               textTransform: "uppercase",
             }}
           >
-            {authUser ? `Linked ${authUser.email}` : "Guest session"}
+            {authUser
+              ? `Linked ${authUser.name || authUser.email}`
+              : "Guest session"}
           </div>
 
           {authUser && (

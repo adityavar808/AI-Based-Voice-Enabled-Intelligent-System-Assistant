@@ -41,27 +41,43 @@ async function parseApiResponse(res) {
 
 export async function sendMessage(message, { history = [], token } = {}) {
   const authToken = token || null;
-  const res = await fetch(getApiUrl("/api/chat"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-    },
-    body: JSON.stringify({
-      message,
-      history,
-    }),
-  });
+  let res;
+
+  try {
+    res = await fetch(getApiUrl("/api/chat"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({
+        message,
+        history,
+      }),
+    });
+  } catch {
+    throw new Error(
+      "Unable to reach the backend server. Please make sure the API is running on port 8000.",
+    );
+  }
 
   return parseApiResponse(res);
 }
 
 export async function getConversationHistory({ token }) {
-  const res = await fetch(getApiUrl("/api/history"), {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  let res;
+
+  try {
+    res = await fetch(getApiUrl("/api/history"), {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch {
+    throw new Error(
+      "Unable to load conversation history because the backend is unavailable.",
+    );
+  }
 
   return parseApiResponse(res);
 }
