@@ -3,402 +3,256 @@ import { AnimatePresence, motion } from "framer-motion";
 
 const MotionDiv = motion.div;
 
-const INITIAL_FORM = {
-  name: "",
-  email: "",
-  password: "",
-  confirmPassword: "",
-};
+const INITIAL_FORM = { name: "", email: "", password: "", confirmPassword: "" };
 
 function getDisplayName(user) {
-  if (!user?.email) return "Operator";
-  return user.name || user.email.split("@")[0];
+  if (!user?.email) return "GUEST_ENTITY";
+  return user.name || user.email.split("@")[0].toUpperCase();
 }
 
-function getPasswordStrength(password) {
-  let score = 0;
-  if (password.length >= 6) score += 1;
-  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
-  if (/\d/.test(password)) score += 1;
-  if (/[^A-Za-z0-9]/.test(password)) score += 1;
-
-  if (score <= 1) {
-    return { label: "Basic", tone: "text-amber-300", track: "30%" };
-  }
-
-  if (score <= 3) {
-    return { label: "Strong", tone: "text-sky-300", track: "65%" };
-  }
-
-  return { label: "Excellent", tone: "text-emerald-300", track: "100%" };
-}
-
-function buildValidationMessage(mode, form) {
-  const name = form.name.trim();
-  const email = form.email.trim().toLowerCase();
-  const password = form.password;
-
-  if (mode === "register" && !name) {
-    return "Display name is required for account setup.";
-  }
-
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return "Enter a valid email address.";
-  }
-
-  if (!password) {
-    return "Password is required.";
-  }
-
-  if (password.length < 6) {
-    return "Password must be at least 6 characters.";
-  }
-
-  if (mode === "register" && password !== form.confirmPassword) {
-    return "Confirm password must match the password field.";
-  }
-
-  return "";
-}
-
-function Tag({ children }) {
+// Simulated background data stream
+function HexStream() {
+  const [stream, setStream] = useState("");
+  useEffect(() => {
+    const chars = "0123456789ABCDEF";
+    const int = setInterval(() => {
+      let str = "";
+      for (let i = 0; i < 64; i++) str += chars[Math.floor(Math.random() * chars.length)] + " ";
+      setStream(str);
+    }, 100);
+    return () => clearInterval(int);
+  }, []);
   return (
-    <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-slate-300/70">
-      {children}
-    </span>
+    <div 
+      className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none text-[8px] leading-tight font-mono text-cyan-500 break-all select-none mix-blend-screen" 
+      style={{ whiteSpace: 'pre-wrap' }}
+    >
+      {stream}
+    </div>
   );
 }
 
-function InputField({
-  label,
-  type = "text",
-  value,
-  onChange,
-  placeholder,
-  autoComplete,
-  helper,
-  action,
-}) {
+function TargetingInput({ label, type = "text", value, onChange, placeholder, action }) {
   return (
-    <label className="block space-y-1.5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[10px] uppercase tracking-[0.24em] text-slate-400">
-          {label}
+    <div className="group relative block w-full mb-6">
+      <div className="flex justify-between items-end mb-1">
+        <span className="font-mono text-[10px] tracking-[0.3em] text-cyan-400/70 uppercase">
+          {label} <span className="animate-pulse text-cyan-300">_</span>
         </span>
-        {helper ? <span className="text-[11px] text-slate-400">{helper}</span> : null}
       </div>
-
-      <div className="relative">
+      
+      <div className="relative flex items-center bg-black/40 backdrop-blur-md">
+        {/* Holographic Brackets */}
+        <div className="absolute left-0 top-0 bottom-0 w-2 border-l-2 border-y-2 border-cyan-500/40 group-focus-within:border-cyan-300 transition-colors shadow-[0_0_10px_rgba(0,229,255,0.2)]" />
+        <div className="absolute right-0 top-0 bottom-0 w-2 border-r-2 border-y-2 border-cyan-500/40 group-focus-within:border-cyan-300 transition-colors shadow-[0_0_10px_rgba(0,229,255,0.2)]" />
+        
         <input
           type={type}
           value={value}
           onChange={onChange}
-          autoComplete={autoComplete}
           placeholder={placeholder}
-          className="w-full rounded-[16px] border border-white/10 bg-white/[0.035] px-4 py-2.5 pr-20 text-[15px] text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/40 focus:bg-white/[0.05]"
+          className="w-full bg-transparent px-4 py-3 font-mono text-sm text-cyan-100 placeholder:text-cyan-800/60 outline-none tracking-widest relative z-10"
         />
 
-        {action ? (
+        {action && (
           <button
             type="button"
             onClick={action.onClick}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-slate-300 transition hover:border-cyan-300/35 hover:text-cyan-200"
+            className="absolute right-4 top-1/2 -translate-y-1/2 font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-400/80 hover:text-white hover:drop-shadow-[0_0_8px_#00e5ff] transition-all z-20"
           >
-            {action.label}
+            [{action.label}]
           </button>
-        ) : null}
+        )}
       </div>
-    </label>
+      {/* Scanning laser line on focus */}
+      <div className="absolute bottom-0 left-0 h-[1px] w-0 bg-cyan-300 group-focus-within:w-full transition-all duration-500 shadow-[0_0_10px_#00e5ff]" />
+    </div>
   );
 }
 
-export default function AuthPanel({
-  authStatus,
-  authUser,
-  onLogin,
-  onRegister,
-  onLogout,
-  onStart,
-}) {
+function CyberButton({ onClick, disabled, children, primary, type = "button" }) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`relative w-full group overflow-hidden ${primary ? 'bg-cyan-950/40' : 'bg-black/40'} border border-cyan-500/30 p-1 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50`}
+      style={{ clipPath: "polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px)" }}
+    >
+      <div className="relative flex items-center justify-center py-3 px-6 bg-black/60 backdrop-blur-sm" style={{ clipPath: "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)" }}>
+        <div className={`absolute inset-0 bg-gradient-to-r ${primary ? 'from-cyan-500/20 to-transparent' : 'from-slate-500/10 to-transparent'} opacity-0 group-hover:opacity-100 transition-opacity`} />
+        
+        {/* Animated grid background inside button */}
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,rgba(0,229,255,0.4)_1px,transparent_1px)] bg-[length:4px_4px]" />
+        
+        <span className={`relative z-10 font-mono text-xs uppercase tracking-[0.4em] font-bold ${primary ? 'text-cyan-300 drop-shadow-[0_0_8px_#00e5ff] group-hover:text-white' : 'text-cyan-600 group-hover:text-cyan-300'}`}>
+          {children}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+export default function AuthPanel({ authStatus, authUser, onLogin, onRegister, onLogout, onStart }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState(INITIAL_FORM);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const displayName = getDisplayName(authUser);
-  const passwordStrength = getPasswordStrength(form.password);
-
-  useEffect(() => {
-    if (authUser) {
-      setError("");
-      setForm(INITIAL_FORM);
-      setShowPassword(false);
-      setShowConfirmPassword(false);
-    }
-  }, [authUser]);
-
-  const updateField = (field) => (event) => {
-    setForm((prev) => ({ ...prev, [field]: event.target.value }));
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const validationError = buildValidationMessage(mode, form);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError("");
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
-      const email = form.email.trim().toLowerCase();
-
-      if (mode === "login") {
-        await onLogin(email, form.password);
-      } else {
-        await onRegister(form.name.trim(), email, form.password);
-      }
-    } catch (submitError) {
-      setError(submitError.message || "Authentication failed");
-    } finally {
-      setIsSubmitting(false);
-    }
+      if (mode === "login") await onLogin(form.email, form.password);
+      else await onRegister(form.name, form.email, form.password);
+    } catch (err) { setError("ERR: ACCESS_DENIED // OVERRIDE_FAILED"); }
   };
 
   return (
-    <MotionDiv
-      initial={{ opacity: 0, x: 18 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.12, duration: 0.4 }}
-      className="relative flex min-h-[280px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#0a1017]/94 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.3)] sm:p-6 xl:min-h-0"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.08),transparent_32%)]" />
+    <div className="relative h-full w-full min-h-[600px] p-8 flex flex-col justify-center border-r border-cyan-500/20 bg-[#020611]">
+      <HexStream />
+      
+      <div className="relative z-10">
+        
+        {/* --- UPGRADED ZENIX HEADER LOCKUP --- */}
+        <div className="mb-10 border-b border-cyan-500/20 pb-6 relative group">
+          {/* Scanning Line Effect on Hover */}
+          <div className="absolute bottom-0 left-0 h-[1px] w-0 bg-cyan-300 group-hover:w-full transition-all duration-700 shadow-[0_0_10px_#00e5ff]" />
 
-      <div className="relative flex h-full min-h-0 flex-col">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Tag>Secure Access</Tag>
-          <Tag>
-            {authStatus === "loading"
-              ? "Syncing"
-              : authUser
-                ? "Verified"
-                : "Guest Available"}
-          </Tag>
-        </div>
+          {/* Top Micro-Data Bar */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-mono text-[8px] tracking-[0.5em] text-cyan-500/50 uppercase">
+              SYS.INIT // CORE_OVERRIDE
+            </span>
+            <div className="flex gap-1 opacity-70">
+              <span className="h-1 w-4 bg-cyan-400"></span>
+              <span className="h-1 w-1 bg-cyan-400"></span>
+              <span className="h-1 w-1 bg-cyan-400"></span>
+            </div>
+          </div>
 
-        <div className="mt-4">
-          <h2 className="text-[clamp(1.6rem,2.6vw,2.25rem)] font-semibold leading-tight tracking-[-0.04em] text-white">
-            {authUser ? `Welcome back, ${displayName}` : "Sign in to continue"}
-          </h2>
-          <p className="mt-2.5 max-w-lg text-sm leading-6 text-slate-300/72">
-            {authUser
-              ? "Your account is linked. Launch ZENIX with persistent memory and stored history."
-              : "Use a registered account for persistent memory, or continue as guest for a temporary local session."}
-          </p>
+          {/* Main Title Lockup */}
+          <div className="flex items-end gap-4">
+            <h1 className="text-5xl xl:text-6xl font-mono font-black tracking-[0.15em] text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_20px_rgba(0,229,255,0.4)]">
+              ZENIX
+            </h1>
+            
+            <div className="pb-1 xl:pb-2 flex flex-col">
+              <h2 className="text-[10px] xl:text-xs font-mono font-bold tracking-[0.4em] text-cyan-400 uppercase">
+                Uplink_Portal
+              </h2>
+              <p className="text-[8px] xl:text-[9px] font-mono tracking-widest text-cyan-500/70 mt-1 flex items-center gap-1.5">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-500"></span>
+                </span>
+                SECURE.NODE.ACTV
+              </p>
+            </div>
+          </div>
         </div>
+        {/* --- END HEADER LOCKUP --- */}
 
         {authUser ? (
-          <div className="mt-5 flex min-h-0 flex-1 flex-col gap-3">
-            <div className="rounded-[18px] border border-white/10 bg-white/[0.035] p-4">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">
-                Active profile
+          <div className="space-y-6">
+            <div className="border border-cyan-400/30 bg-cyan-900/10 p-6 relative overflow-hidden backdrop-blur-md">
+              
+              {/* Corner Accents for the User Box */}
+              <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-400" />
+              <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-400" />
+
+              <div className="absolute top-0 right-0 p-2 opacity-30">
+                <svg width="40" height="40" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    fill="none"
+                    stroke="#00e5ff"
+                    strokeWidth="2"
+                    strokeDasharray="10 5"
+                    className="animate-[spin_10s_linear_infinite]"
+                  />
+                </svg>
+              </div>
+              <p className="font-mono text-[9px] tracking-[0.3em] text-cyan-500/70 mb-1">
+                IDENTIFIED_ENTITY:
               </p>
-              <p className="mt-3 text-xl font-semibold text-white">{displayName}</p>
-              <p className="mt-2 break-all text-sm text-slate-300/72">
+              <p className="font-mono text-2xl font-bold tracking-[0.2em] text-white drop-shadow-[0_0_8px_rgba(0,229,255,0.5)]">
+                {getDisplayName(authUser)}
+              </p>
+              <p className="font-mono text-[10px] tracking-widest text-cyan-400/60 mt-1">
                 {authUser.email}
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={onStart}
-                className="whitespace-nowrap rounded-[16px] border border-cyan-300/30 bg-[linear-gradient(135deg,rgba(8,47,73,0.95),rgba(9,84,112,0.95))] px-4 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-cyan-50 transition hover:brightness-110"
-              >
-                Launch Workspace
-              </button>
-              <button
-                type="button"
-                onClick={onLogout}
-                className="whitespace-nowrap rounded-[16px] border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs uppercase tracking-[0.12em] text-slate-200 transition hover:border-cyan-300/35 hover:text-cyan-100"
-              >
-                Switch Account
-              </button>
-            </div>
-
-            <div className="mt-auto flex flex-wrap gap-2">
-              {[
-                ["Memory", "Persistent"],
-                ["Voice", "Standby"],
-                ["Session", "Authenticated"],
-              ].map(([label, value]) => (
-                <span
-                  key={label}
-                  className="rounded-full border border-white/10 bg-white/[0.025] px-3 py-2 text-[11px] text-slate-200"
-                >
-                  <span className="uppercase tracking-[0.18em] text-slate-500">
-                    {label}
-                  </span>{" "}
-                  <span className="text-white">{value}</span>
-                </span>
-              ))}
+            <div className="pt-2 space-y-3">
+              <CyberButton onClick={onStart} primary>
+                INITIATE_ZENIX_CORE
+              </CyberButton>
+              <CyberButton onClick={onLogout}>
+                SEVER_CONNECTION
+              </CyberButton>
             </div>
           </div>
         ) : (
-          <>
-            <div className="mt-5 grid grid-cols-2 gap-2 rounded-[16px] border border-white/10 bg-black/20 p-1">
-              {["login", "register"].map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => {
-                    setMode(tab);
-                    setError("");
-                  }}
-                  className={`rounded-[12px] px-3 py-2.5 text-[11px] uppercase tracking-[0.18em] transition ${
-                    mode === tab
-                      ? "bg-white text-slate-950"
-                      : "text-slate-400 hover:text-white"
-                  }`}
+          <form onSubmit={handleSubmit} className="space-y-2">
+            <AnimatePresence>
+              {mode === "register" && (
+                <MotionDiv
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
                 >
-                  {tab === "login" ? "Sign In" : "Register"}
-                </button>
-              ))}
-            </div>
-
-            <form
-              className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1 pb-1"
-              onSubmit={handleSubmit}
-            >
-              <AnimatePresence initial={false}>
-                {mode === "register" ? (
-                  <MotionDiv
-                    initial={{ opacity: 0, height: 0, y: -6 }}
-                    animate={{ opacity: 1, height: "auto", y: 0 }}
-                    exit={{ opacity: 0, height: 0, y: -6 }}
-                    className="overflow-hidden"
-                  >
-                    <InputField
-                      label="Display Name"
-                      value={form.name}
-                      onChange={updateField("name")}
-                      autoComplete="name"
-                      placeholder="Krishna Verma"
-                    />
-                  </MotionDiv>
-                ) : null}
-              </AnimatePresence>
-
-              <InputField
-                label="Email"
-                type="email"
-                value={form.email}
-                onChange={updateField("email")}
-                autoComplete="email"
-                placeholder="operator@zenix.ai"
-              />
-
-              <InputField
-                label="Password"
-                type={showPassword ? "text" : "password"}
-                value={form.password}
-                onChange={updateField("password")}
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                placeholder="Minimum 6 characters"
-                helper={form.password ? passwordStrength.label : "Secure access"}
-                action={{
-                  label: showPassword ? "Hide" : "Show",
-                  onClick: () => setShowPassword((prev) => !prev),
-                }}
-              />
-
-              <AnimatePresence initial={false}>
-                {mode === "register" ? (
-                  <MotionDiv
-                    initial={{ opacity: 0, height: 0, y: -6 }}
-                    animate={{ opacity: 1, height: "auto", y: 0 }}
-                    exit={{ opacity: 0, height: 0, y: -6 }}
-                    className="overflow-hidden"
-                  >
-                    <InputField
-                      label="Confirm Password"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={form.confirmPassword}
-                      onChange={updateField("confirmPassword")}
-                      autoComplete="new-password"
-                      placeholder="Repeat the same password"
-                      action={{
-                        label: showConfirmPassword ? "Hide" : "Show",
-                        onClick: () =>
-                          setShowConfirmPassword((prev) => !prev),
-                      }}
-                    />
-                  </MotionDiv>
-                ) : null}
-              </AnimatePresence>
-
-              <div className="rounded-[16px] border border-white/10 bg-white/[0.03] px-4 py-2.5">
-                <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.22em] text-slate-400">
-                  <span>Password Strength</span>
-                  <span className={passwordStrength.tone}>
-                    {form.password ? passwordStrength.label : "Waiting"}
-                  </span>
-                </div>
-                <div className="mt-3 h-1.5 rounded-full bg-white/8">
-                  <div
-                    className="h-full rounded-full bg-[linear-gradient(90deg,#f59e0b,#38bdf8,#10b981)] transition-all duration-300"
-                    style={{ width: form.password ? passwordStrength.track : "8%" }}
+                  <TargetingInput
+                    label="DESIGNATION"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="ENTER ALIAS"
                   />
-                </div>
+                </MotionDiv>
+              )}
+            </AnimatePresence>
+
+            <TargetingInput
+              label="COM_LINK (EMAIL)"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="OPERATIVE@NETWORK"
+            />
+            <TargetingInput
+              label="DECRYPTION_KEY"
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="••••••••"
+            />
+
+            {error && (
+              <div className="font-mono text-[10px] text-red-500 tracking-widest bg-red-950/30 p-2 border-l-2 border-red-500 mb-4 animate-pulse">
+                {error}
               </div>
+            )}
 
-              <AnimatePresence>
-                {error ? (
-                  <MotionDiv
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    className="shrink-0 rounded-[16px] border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
-                  >
-                    {error}
-                  </MotionDiv>
-                ) : null}
-              </AnimatePresence>
-
-              <div className="mt-auto grid shrink-0 gap-3 sm:grid-cols-2">
-                <button
-                  type="submit"
-                  disabled={isSubmitting || authStatus === "loading"}
-                  className="whitespace-nowrap rounded-[16px] border border-cyan-300/30 bg-[linear-gradient(135deg,rgba(8,47,73,0.95),rgba(9,84,112,0.95))] px-4 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-cyan-50 transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
-                >
-                  {isSubmitting
-                    ? mode === "login"
-                      ? "Signing In..."
-                      : "Creating Account..."
-                    : mode === "login"
-                      ? "Sign In"
-                      : "Create Account"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onStart}
-                  className="whitespace-nowrap rounded-[16px] border border-white/10 bg-white/[0.035] px-4 py-2.5 text-xs uppercase tracking-[0.12em] text-slate-200 transition hover:border-cyan-300/35 hover:text-cyan-100"
-                >
-                  Continue as Guest
-                </button>
-              </div>
-
-            </form>
-          </>
+            <div className="pt-4 space-y-4">
+              <CyberButton primary type="submit">
+                {mode === "login" ? "AUTHENTICATE" : "REGISTER_DATA"}
+              </CyberButton>
+              <CyberButton
+                type="button"
+                onClick={() => setMode(mode === "login" ? "register" : "login")}
+              >
+                {mode === "login"
+                  ? "SWITCH_TO_REGISTRATION"
+                  : "SWITCH_TO_LOGIN"}
+              </CyberButton>
+              <div className="w-full h-[1px] bg-cyan-500/20 my-2" />
+              <CyberButton type="button" onClick={onStart}>
+                BYPASS_SECURITY (GUEST)
+              </CyberButton>
+            </div>
+          </form>
         )}
       </div>
-    </MotionDiv>
+    </div>
   );
 }
