@@ -194,25 +194,25 @@ export default function SystemLogs({ onComplete }) {
                   key="active-step"
                   initial={{ opacity: 0, scale: 0.98 }} 
                   animate={{ opacity: 1, scale: 1 }} 
-                  className="flex flex-col border-l-2 border-cyan-400 pl-3 py-2 bg-cyan-950/30 relative overflow-hidden group"
+                  className="flex flex-col border-l-2 border-emerald-500/50 pl-3 py-1 bg-emerald-950/10"
                 >
-                  {/* Scanning background block */}
-                  <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 animate-[scan_2s_linear_infinite]" />
-                  
-                  <div className="flex justify-between items-center text-[10px] tracking-widest relative z-10">
-                    <span className="text-cyan-400 animate-pulse">[{BOOT_SEQUENCE[activeStep].id}] EXECUTING...</span>
-                    <CyberSpinner />
+                  <div className="flex justify-between items-start text-[10px] tracking-widest">
+                    <span className="text-cyan-500/70">[{BOOT_SEQUENCE[activeStep].id}] EXECUTING...</span>
+                    <span className="text-emerald-400/80">EXECUTING</span>
                   </div>
-                  <div className="text-sm font-bold text-white tracking-widest mt-1 relative z-10 uppercase">
-                    {BOOT_SEQUENCE[activeStep].target}
+                  <div className="flex justify-between items-end mt-1">
+                    <span className="text-xs text-white uppercase">{BOOT_SEQUENCE[activeStep].target}</span>
+                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1 border border-emerald-500/20">
+                      EXECUTING
+                    </span>
                   </div>
                   
                   {/* If it's a heavy download, show network transfer data */}
                   {BOOT_SEQUENCE[activeStep].isHeavy && (
-                    <div className="mt-2 flex items-center gap-4 text-[9px] text-cyan-300 relative z-10">
+                    <div className="mt-2 flex items-center gap-4 text-[9px] text-emerald-300">
                       <span>RCV: {(downloadedBytes / 1024).toFixed(2)} MB</span>
-                      <div className="flex-1 h-1 bg-cyan-950/50">
-                        <div className="h-full bg-cyan-400 w-full origin-left animate-[pulse_0.2s_ease-in-out_infinite]" style={{ scaleX: (downloadedBytes % 100) / 100 }} />
+                      <div className="flex-1 h-1 bg-emerald-950/50">
+                        <div className="h-full bg-emerald-400 w-full origin-left animate-[pulse_0.2s_ease-in-out_infinite]" style={{ scaleX: (downloadedBytes % 100) / 100 }} />
                       </div>
                       <span className="animate-pulse">DOWNLOADING</span>
                     </div>
