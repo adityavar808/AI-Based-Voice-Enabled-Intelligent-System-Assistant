@@ -477,11 +477,10 @@ const Home = ({
       if (recognitionRef.current === recognition) recognitionRef.current = null;
       if (silenceTimer) return;
 
+      // If recognition ended without a final isFinal result, commit the latest interim transcript.
       if (interimEntry && !committed) {
-        setConversationEntries((prev) =>
-          prev.filter((entry) => entry.id !== interimEntry.id),
-        );
-        interimEntry = null;
+        killAndCommit();
+        return;
       }
 
       if (
