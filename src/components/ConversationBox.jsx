@@ -1,6 +1,66 @@
 import { useState, useEffect, useRef } from "react";
 import { sendMessage } from "../api/chat";
-// Status configuration for different conversation states
+import CodeViewer from "./CodeViewer";
+
+// Language detection patterns
+const LANGUAGE_MAP = {
+  js: "javascript", jsx: "jsx", ts: "typescript", tsx: "tsx", py: "python",
+  java: "java", cpp: "cpp", c: "c", cs: "csharp", rb: "ruby", go: "go",
+  rs: "rust", php: "php", swift: "swift", kt: "kotlin", scala: "scala",
+  clj: "clojure", sql: "sql", html: "html", css: "css", scss: "scss",
+  less: "less", xml: "xml", json: "json", yaml: "yaml", yml: "yaml",
+  toml: "toml", md: "markdown", bash: "bash", shell: "bash", sh: "bash",
+};
+
+// Syntax colors
+const SYNTAX_COLORS = {
+  keyword: "#ff79c6",
+  string: "#f1fa8c",
+  number: "#bd93f9",
+  comment: "#6272a4",
+  function: "#50fa7b",
+  variable: "#8be9fd",
+  operator: "#ff79c6",
+  default: "#f8f8f2",
+};
+
+function detectLanguage(code) {
+  const firstLine = code.split('\n')[0].toLowerCase();
+  for (const [ext, lang] of Object.entries(LANGUAGE_MAP)) {
+    if (firstLine.includes(ext)) return lang;
+  }
+  return "javascript";
+}
+
+function syntaxHighlight(code, language = "javascript") {
+  const keywords = {
+    javascript: /\b(function|const|let|var|if|else|for|while|return|class|import|export|async|await|try|catch|switch|case|default|new|this|super|extends|static|get|set|do|break|continue)\b/g,
+    python: /\b(def|class|if|elif|else|for|while|return|import|from|try|except|finally|with|as|pass|break|continue|and|or|not|in|is|lambda|yield|assert|raise|del|global|nonlocal)\b/g,
+    java: /\b(public|private|protected|static|final|class|interface|extends|implements|new|return|if|else|for|while|do|try|catch|finally|throw|throws|synchronized|volatile|transient|abstract|native|strictfp|boolean|byte|char|short|int|long|float|double|void|this|super|import|package|enum)\b/g,
+    cpp: /\b(int|char|float|double|bool|void|const|volatile|static|extern|auto|register|typename|template|class|struct|union|enum|operator|return|if|else|for|while|do|switch|case|default|break|continue|using|namespace|public|private|protected|virtual|inline|explicit)\b/g,
+    ruby: /\b(def|class|if|elsif|else|unless|case|when|while|for|do|begin|rescue|ensure|return|require|include|extend|attr_reader|attr_writer|attr_accessor|self|super|private|protected|public|alias|and|or|not)\b/g,
+    go: /\b(func|package|import|const|var|type|struct|interface|map|chan|go|defer|select|case|default|if|else|for|range|return|switch|fallthrough|break|continue|error|main)\b/g,
+    php: /\b(function|class|interface|trait|namespace|use|const|public|private|protected|static|abstract|final|extends|implements|new|return|if|else|elseif|switch|case|for|foreach|while|do|try|catch|finally|echo|print|isset|empty|array|list|global|require|include|require_once|include_once)\b/g,
+  };
+
+  let highlighted = code
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+  highlighted = highlighted.replace(/(".*?"|'.*?'|`.*?`)/g, `<span style="color: ${SYNTAX_COLORS.string}">$1</span>`);
+  highlighted = highlighted.replace(/\/\/.*$/gm, `<span style="color: ${SYNTAX_COLORS.comment}">$&</span>`);
+  highlighted = highlighted.replace(/\/\*[\s\S]*?\*\//g, `<span style="color: ${SYNTAX_COLORS.comment}">$&</span>`);
+  highlighted = highlighted.replace(/\b(\d+\.?\d*)\b/g, `<span style="color: ${SYNTAX_COLORS.number}">$1</span>`);
+
+  const langKeywords = keywords[language] || keywords.javascript;
+  highlighted = highlighted.replace(langKeywords, `<span style="color: ${SYNTAX_COLORS.keyword}">$&</span>`);
+
+  return highlighted;
+}
+
 const STATUS_CFG = {
   idle: {
     label: "IDLE",
@@ -101,7 +161,94 @@ function useUserSpeechStream({ text, active, speed = 90 }) {
   return { displayed, done };
 }
 
-function TranscriptEntry({ entry, isLatest, globalStatus }) {
+const CODE_BLOCK_RE = /```([\w]*)\n?([\s\S]*?)```/g;
+const INLINE_CODE_RE = /`([^`\n]+)`/g;
+
+const TIME_EXTRACT_RE = /(?:at|in|for)\s+(\d{1,2}:\d{2}|\d+\s?(seconds?|minutes?|hours?))/i;
+
+function formatTranscriptText(text, onCodeBlockClick) {
+  if (!text) return null;
+
+  const segments = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = CODE_BLOCK_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: "text", value: text.slice(lastIndex, match.index) });
+    }
+    const language = match[1].trim() || '';
+    const code = match[2].trim();
+    segments.push({ type: "codeBlock", value: code, language });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ type: "text", value: text.slice(lastIndex) });
+  }
+
+  if (segments.length === 0) {
+    return text.split(INLINE_CODE_RE).map((part, index) =>
+      index % 2 === 1 ? (
+        <code style={S.codeInline} key={`inline-${index}`}>
+          {part}
+        </code>
+      ) : (
+        part
+      ),
+    );
+  }
+
+  return segments.map((segment, idx) => {
+    if (segment.type === "codeBlock") {
+      return (
+        <button
+          key={`code-block-${idx}`}
+          onClick={() => onCodeBlockClick(segment.value, segment.language)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(15, 23, 42, 1)";
+            e.currentTarget.style.borderColor = "rgba(59, 130, 246, 0.6)";
+            e.currentTarget.style.boxShadow = "0 0 16px rgba(59, 130, 246, 0.2)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(15, 23, 42, 0.9)";
+            e.currentTarget.style.borderColor = "rgba(148, 163, 184, 0.35)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
+          style={S.codeBlockButton}
+        >
+          <div style={S.codeBlockHeader}>
+            <span style={S.codeBlockLabel}>Code Block</span>
+            {segment.language && (
+              <span style={S.codeBlockLanguage}>{segment.language}</span>
+            )}
+          </div>
+          <pre style={S.codeBlockPreview}>
+            <code>{segment.value.split('\n').slice(0, 3).join('\n')}{segment.value.split('\n').length > 3 ? '\n...' : ''}</code>
+          </pre>
+        </button>
+      );
+    }
+
+    const inlineNodes = segment.value.split(INLINE_CODE_RE).map((part, i) =>
+      i % 2 === 1 ? (
+        <code style={S.codeInline} key={`inline-${idx}-${i}`}>
+          {part}
+        </code>
+      ) : (
+        part
+      ),
+    );
+
+    return (
+      <span key={`text-seg-${idx}`} style={{ whiteSpace: "pre-wrap" }}>
+        {inlineNodes}
+      </span>
+    );
+  });
+}
+
+function TranscriptEntry({ entry, isLatest, globalStatus, onCodeBlockClick }) {
   const isUser = entry.type === "user";
   const isInterimUser = isUser && entry.interim;
   const { displayed: uD, done: uDone } = useUserSpeechStream({
@@ -158,12 +305,12 @@ function TranscriptEntry({ entry, isLatest, globalStatus }) {
             : "rgba(96,165,250,0.25)",
         }}
       >
-        <span
+        <div
           style={{ ...S.textContent, color: isUser ? "#ede9fe" : "#dbeafe" }}
         >
-          {text}
+          {formatTranscriptText(text, onCodeBlockClick)}
           {isAssStr && <span className="zenix-cursor" style={S.cursor} />}
-        </span>
+        </div>
       </div>
     </div>
   );
@@ -300,8 +447,12 @@ export default function ConversationBox({
   const [internalEntries, setInternalEntries] = useState([]);
   const [demoRunning, setDemoRunning] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
+  const [codePopup, setCodePopup] = useState(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollRef = useRef(null);
   const timers = useRef([]);
+  const scrollTimeoutRef = useRef(null);
 
   const status = externalStatus !== undefined ? externalStatus : internalStatus;
   const entries =
@@ -383,13 +534,82 @@ export default function ConversationBox({
     sendMessageToBackend(nextText);
   };
 
+  // Auto-scroll effect with user control
   useEffect(() => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
+
+    const scrollContainer = scrollRef.current;
+    const handleScroll = () => {
+      const isAtBottom =
+        scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 100;
+      
+      if (!isAtBottom && autoScroll) {
+        setAutoScroll(false);
+        setShowScrollButton(true);
+      } else if (isAtBottom && !autoScroll) {
+        setAutoScroll(true);
+        setShowScrollButton(false);
+      }
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [autoScroll]);
+
+  // Scroll to bottom effect - triggered on entries or status change
+  useEffect(() => {
+    if (!scrollRef.current || !autoScroll) return;
+
+    // Use requestAnimationFrame to ensure DOM has updated
+    const animationFrame = requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        // Fallback with setTimeout for cases where immediate scroll doesn't work
+        setTimeout(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+        }, 50);
+      }
     });
-  }, [entries, status]);
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [entries, status, autoScroll]);
+
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      setAutoScroll(true);
+      setShowScrollButton(false);
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (!codePopup) return;
+
+      if (event.key === 'Escape') {
+        closeCodePopup();
+      } else if (event.key === 'c' && (event.ctrlKey || event.metaKey)) {
+        // Copy functionality is already handled by the button
+        event.preventDefault();
+      }
+    };
+
+    if (codePopup) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when popup is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [codePopup]);
 
   const clearTimers = () => {
     timers.current.forEach(clearTimeout);
@@ -447,14 +667,12 @@ export default function ConversationBox({
     setDraftMessage("");
   };
 
-  const handleComposerSubmit = (event) => {
-    event.preventDefault();
-    const nextText = draftMessage.trim();
+  const handleCodeBlockClick = (code, language) => {
+    setCodePopup({ code, language });
+  };
 
-    if (!nextText) return;
-
-    setDraftMessage("");
-    handleUserMessage(nextText);
+  const closeCodePopup = () => {
+    setCodePopup(null);
   };
 
   const cfg = STATUS_CFG[status] || STATUS_CFG.idle;
@@ -471,6 +689,7 @@ export default function ConversationBox({
         @keyframes zenix-think  { 0%,80%,100%{transform:scaleY(0.4);opacity:0.25} 40%{transform:scaleY(1);opacity:1} }
         @keyframes zenix-bar    { 0%,100%{transform:scaleY(0.4)} 50%{transform:scaleY(1)} }
         @keyframes zenix-glow   { 0%,100%{opacity:0.6} 50%{opacity:1} }
+        @keyframes fadeInUp     { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         .zenix-pulse  { animation: zenix-pulse  1.5s ease-in-out infinite; }
         .zenix-ripple { animation: zenix-ripple 1.8s ease-out infinite; }
         .zenix-spin   { animation: zenix-spin   1s linear infinite; }
@@ -478,6 +697,7 @@ export default function ConversationBox({
         .zenix-entry  { animation: zenix-fadeup 0.35s cubic-bezier(0.22,1,0.36,1) forwards; }
         .zenix-think  { animation: zenix-think  1.3s ease-in-out infinite; }
         .zenix-bar    { animation: zenix-bar    0.7s ease-in-out infinite alternate; }
+        .fadeInUp     { animation: fadeInUp 0.4s ease-out forwards; }
         .zenix-scroll::-webkit-scrollbar { width:4px; }
         .zenix-scroll::-webkit-scrollbar-track { background:transparent; }
         .zenix-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08);border-radius:2px; }
@@ -511,6 +731,7 @@ export default function ConversationBox({
               entry={entry}
               isLatest={i === entries.length - 1}
               globalStatus={status}
+              onCodeBlockClick={handleCodeBlockClick}
             />
           </div>
         ))}
@@ -520,6 +741,45 @@ export default function ConversationBox({
           </div>
         )}
       </div>
+
+      {/* Auto-scroll Button */}
+      {showScrollButton && (
+        <button
+          onClick={scrollToBottom}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.15) translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 0 20px rgba(96, 165, 250, 0.6)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = '0 0 12px rgba(96, 165, 250, 0.35)';
+          }}
+          style={{
+            position: 'absolute',
+            bottom: '100px',
+            right: '28px',
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            border: '1px solid rgba(96, 165, 250, 0.4)',
+            color: '#fff',
+            fontSize: '18px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            outline: 'none',
+            boxShadow: '0 0 12px rgba(96, 165, 250, 0.35)',
+            transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            zIndex: 50,
+            animation: 'fadeInUp 0.4s ease-out',
+          }}
+          title="Scroll to bottom"
+        >
+          ↓
+        </button>
+      )}
 
       <WaveformFooter status={status} entryCount={entries.length} />
 
@@ -559,7 +819,18 @@ export default function ConversationBox({
             <input
               type="text"
               value={draftMessage}
-              onChange={(event) => setDraftMessage(event.target.value)}
+              onChange={(event) => {
+                setDraftMessage(event.target.value);
+                // Auto-scroll to bottom when typing
+                if (scrollRef.current) {
+                  setTimeout(() => {
+                    scrollRef.current?.scrollTo({
+                      top: scrollRef.current.scrollHeight,
+                      behavior: 'smooth',
+                    });
+                  }, 0);
+                }
+              }}
               placeholder="Type a message for Zenix..."
               style={S.composerInput}
             />
@@ -582,6 +853,13 @@ export default function ConversationBox({
             </button>
           </form>
         </div>
+      )}
+      {codePopup && (
+        <CodeViewer
+          code={codePopup.code}
+          language={codePopup.language}
+          onClose={closeCodePopup}
+        />
       )}
     </div>
   );
@@ -687,6 +965,7 @@ const S = {
     display: "flex",
     flexDirection: "column",
     gap: "2px",
+    position: "relative",
   },
   emptyState: {
     flex: 1,
@@ -767,6 +1046,66 @@ const S = {
     fontWeight: 300,
     letterSpacing: "0.025em",
     wordBreak: "break-word",
+    whiteSpace: "pre-wrap",
+  },
+  codeBlock: {
+    background: "rgba(15, 23, 42, 0.9)",
+    border: "1px solid rgba(148, 163, 184, 0.35)",
+    borderRadius: "8px",
+    padding: "10px",
+    margin: "10px 0",
+    fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: "12px",
+    overflowX: "auto",
+    maxWidth: "100%",
+    whiteSpace: "pre-wrap",
+    color: "#cbd5e1",
+  },
+  codeBlockButton: {
+    background: "rgba(15, 23, 42, 0.9)",
+    border: "1px solid rgba(148, 163, 184, 0.35)",
+    borderRadius: "8px",
+    padding: "12px",
+    margin: "8px 0",
+    width: "100%",
+    textAlign: "left",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    outline: "none",
+  },
+  codeBlockHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "8px",
+  },
+  codeBlockLabel: {
+    fontSize: "12px",
+    fontWeight: "600",
+    color: "#cbd5e1",
+    fontFamily: "'Outfit', sans-serif",
+  },
+  codeBlockLanguage: {
+    background: "rgba(59,130,246,0.2)",
+    color: "#3b82f6",
+    padding: "2px 6px",
+    borderRadius: "4px",
+    fontSize: "10px",
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+  },
+  codeBlockPreview: {
+    background: "rgba(15, 23, 42, 0.8)",
+    border: "1px solid rgba(148, 163, 184, 0.2)",
+    borderRadius: "4px",
+    padding: "8px",
+    fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: "11px",
+    color: "#94a3b8",
+    overflow: "hidden",
+    whiteSpace: "pre-wrap",
+    maxHeight: "60px",
   },
   cursor: {
     display: "inline-block",
