@@ -1,11 +1,16 @@
-```
+<div align="center">
+<pre style="background:transparent; border:none; box-shadow:none;">
 ███████╗  ███████╗  ███╗   ██╗  ██╗  ██╗  ██╗ 
 ╚══███╔╝  ██╔════╝  ████╗  ██║  ██║  ╚██╗██╔╝ 
   ███╔╝   █████╗    ██╔██╗ ██║  ██║   ╚███╔╝  
  ███╔╝    ██╔══╝    ██║╚██╗██║  ██║   ██╔██╗  
 ███████╗  ███████╗  ██║ ╚████║  ██║  ██╔╝ ██╗ 
 ╚══════╝  ╚══════╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝  ╚═╝ 
-```
+</pre>
+
+### `[ AI-BASED VOICE-ENABLED INTELLIGENT SYSTEM ASSISTANT ]`
+
+</div>
 ## <div align="center">AI-Based Voice-Enabled Intelligent System Assistant</div>
 
 <div align="center">
