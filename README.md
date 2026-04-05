@@ -1,4 +1,3 @@
-# <div align="center">
 ```
 ███████╗  ███████╗  ███╗   ██╗  ██╗  ██╗  ██╗ 
 ╚══███╔╝  ██╔════╝  ████╗  ██║  ██║  ╚██╗██╔╝ 
@@ -7,8 +6,6 @@
 ███████╗  ███████╗  ██║ ╚████║  ██║  ██╔╝ ██╗ 
 ╚══════╝  ╚══════╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝  ╚═╝ 
 ```
-</div>
-
 ## <div align="center">AI-Based Voice-Enabled Intelligent System Assistant</div>
 
 <div align="center">
