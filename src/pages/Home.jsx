@@ -684,7 +684,8 @@ const Home = ({
               border: "1px solid rgba(96,165,250,0.18)",
               borderRadius: "999px",
               padding: "4px",
-              boxShadow: "0 0 24px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.04)",
+              boxShadow:
+                "0 0 24px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.04)",
             }}
           >
             {isCompact && (
@@ -693,8 +694,20 @@ const Home = ({
                 style={controlButtonStyle}
                 aria-label="Toggle history panel"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 0 6px #3b82f6)" }}>
-                  <path d="M3 6h18" /><path d="M3 12h18" /><path d="M3 18h12" />
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#60a5fa"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ filter: "drop-shadow(0 0 6px #3b82f6)" }}
+                >
+                  <path d="M3 6h18" />
+                  <path d="M3 12h18" />
+                  <path d="M3 18h12" />
                 </svg>
               </button>
             )}
@@ -710,31 +723,59 @@ const Home = ({
                 background: "transparent",
                 boxShadow: "none",
               }}
-              onMouseEnter={(e) => { if (!isOrbReady) return; e.currentTarget.style.background = "rgba(59,130,246,0.15)"; }}
-              onMouseLeave={(e) => { if (!isOrbReady) return; e.currentTarget.style.background = "transparent"; }}
+              onMouseEnter={(e) => {
+                if (!isOrbReady) return;
+                e.currentTarget.style.background = "rgba(59,130,246,0.15)";
+              }}
+              onMouseLeave={(e) => {
+                if (!isOrbReady) return;
+                e.currentTarget.style.background = "transparent";
+              }}
             >
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 0 6px #3b82f6)" }}>
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#60a5fa"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ filter: "drop-shadow(0 0 6px #3b82f6)" }}
+              >
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0A1.65 1.65 0 0 0 20.91 11H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
             </button>
 
-            <div style={{ width: "1px", height: "20px", background: "rgba(96,165,250,0.2)", margin: "0 2px" }} />
+            <div
+              style={{
+                width: "1px",
+                height: "20px",
+                background: "rgba(96,165,250,0.2)",
+                margin: "0 2px",
+              }}
+            />
 
-            <div style={{
-              padding: "6px 14px",
-              color: authUser ? "#7dd3fc" : "#94a3b8",
-              fontSize: "11px",
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              fontWeight: 500,
-            }}>
+            <div
+              style={{
+                padding: "6px 14px",
+                color: authUser ? "#7dd3fc" : "#94a3b8",
+                fontSize: "11px",
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+                fontWeight: 500,
+              }}
+            >
               {authUser ? `⬡ ${authUser.name || authUser.email}` : "Guest"}
             </div>
 
             {authUser && (
               <button
-                onClick={onLogout}
+                onClick={() => {
+                  onLogout();
+                  setStart(false);
+                }}
                 style={{
                   padding: "6px 16px",
                   borderRadius: "999px",
@@ -748,8 +789,14 @@ const Home = ({
                   transition: "all 0.2s ease",
                   marginRight: "2px",
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(127,29,29,0.55)"; e.currentTarget.style.borderColor = "rgba(248,113,113,0.5)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(127,29,29,0.3)"; e.currentTarget.style.borderColor = "rgba(248,113,113,0.25)"; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(127,29,29,0.55)";
+                  e.currentTarget.style.borderColor = "rgba(248,113,113,0.5)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(127,29,29,0.3)";
+                  e.currentTarget.style.borderColor = "rgba(248,113,113,0.25)";
+                }}
               >
                 Logout
               </button>

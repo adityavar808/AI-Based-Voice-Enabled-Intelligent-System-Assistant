@@ -80,58 +80,61 @@ function CinematicBoot({
             initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 1.2, duration: 1 }}
-            className={`relative rounded-2xl p-5 bg-[#021423]/70 border border-cyan-500/40 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,255,255,0.25)] ${
+            className={`relative bg-[#020611]/80 backdrop-blur-xl border border-cyan-500/30 shadow-[0_0_30px_rgba(0,229,255,0.1)] p-1 overflow-hidden ${
               compact ? "w-full max-w-xl" : "w-[30%]"
             }`}
           >
-            <div className="absolute inset-0 pointer-events-none rounded-2xl bg-[radial-gradient(circle_at_20%_20%,rgba(0,255,255,0.35),transparent_40%)] mix-blend-screen" />
-            <div className="absolute inset-0 pointer-events-none rounded-2xl border border-cyan-300/20 backdrop-blur-sm" />
-            <div className="absolute top-3 left-3 flex items-center gap-2 text-[10px] tracking-wider uppercase text-cyan-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-400/90 animate-pulse shadow-[0_0_8px_rgba(0,255,170,0.75)]" />
-              LIVE
-            </div>
-            <div className="absolute top-3 right-3 h-2 w-2 rounded-full border border-cyan-400 animate-[pulse_1.2s_ease-in-out_infinite]" />
+            {/* Corner Brackets */}
+            <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
+            <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan-400" />
+            <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-400" />
+            <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan-400" />
 
-            <h2 className="relative z-10 text-xl font-bold tracking-wider mb-5 text-cyan-200 border-b border-cyan-400/25 pb-3">
-              SYSTEM MONITOR
-            </h2>
-
-            <div className="space-y-4 text-sm font-mono text-cyan-100 relative z-10">
-              <div className="rounded-md border border-cyan-500/30 bg-[#06172d]/70 p-3 shadow-[0_0_15px_rgba(0,255,255,0.2)]">
-                <div className="flex justify-between items-center text-xs uppercase tracking-widest text-cyan-300">
-                  <span>CPU Usage</span>
-                  <span className="font-bold text-cyan-50">42%</span>
-                </div>
-                <div className="mt-2 h-2 bg-cyan-500/15 rounded-full overflow-hidden">
-                  <MotionDiv
-                    initial={{ width: 0 }}
-                    animate={{ width: "42%" }}
-                    transition={{ duration: 1.5 }}
-                    className="h-full bg-gradient-to-r from-cyan-300 to-cyan-500"
-                  />
-                </div>
-                <p className="mt-2 text-[10px] text-cyan-300/70">Core load smooth, no anomalies</p>
+            <div className="bg-black/60 p-5 space-y-5 relative z-10">
+              {/* Header */}
+              <div className="flex justify-between items-center border-b border-cyan-500/20 pb-2">
+                <p className="text-xs tracking-[0.35em] text-cyan-400 uppercase">
+                  System Monitor
+                </p>
+                <span className="text-[10px] text-emerald-400 animate-pulse tracking-widest">
+                  LIVE
+                </span>
               </div>
 
-              <div className="rounded-md border border-cyan-500/30 bg-[#06172d]/70 p-3 shadow-[0_0_15px_rgba(0,155,255,0.2)]">
-                <div className="flex justify-between items-center text-xs uppercase tracking-widest text-cyan-300">
-                  <span>Memory</span>
-                  <span className="font-bold text-cyan-50">6.7GB</span>
+              {/* CPU */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-cyan-500/70 tracking-widest">
+                  <span>CPU_USAGE</span>
+                  <span className="text-white font-bold">42%</span>
                 </div>
-                <div className="mt-2 h-2 bg-cyan-500/15 rounded-full overflow-hidden">
-                  <MotionDiv
-                    initial={{ width: 0 }}
-                    animate={{ width: "68%" }}
-                    transition={{ duration: 1.5 }}
-                    className="h-full bg-gradient-to-r from-blue-300 to-blue-500"
-                  />
+                <div className="relative h-1 bg-cyan-950/40 border border-cyan-500/20 overflow-hidden">
+                  <div className="h-full bg-cyan-400 w-[42%] shadow-[0_0_10px_rgba(0,229,255,0.6)]" />
                 </div>
-                <p className="mt-2 text-[10px] text-cyan-300/70">Memory heap stabilized</p>
+                <p className="text-[9px] text-cyan-400/60 tracking-widest">
+                  CORE LOAD STABLE
+                </p>
               </div>
 
-              <div className="rounded-md border border-cyan-500/30 bg-[#06172d]/70 p-3 flex justify-between items-center text-xs uppercase tracking-widest text-cyan-300 shadow-[0_0_15px_rgba(0,200,120,0.2)]">
-                <span>Network</span>
-                <span className="font-bold text-emerald-300">SECURE</span>
+              {/* Memory */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-cyan-500/70 tracking-widest">
+                  <span>MEMORY</span>
+                  <span className="text-white font-bold">6.7GB</span>
+                </div>
+                <div className="relative h-1 bg-cyan-950/40 border border-cyan-500/20 overflow-hidden">
+                  <div className="h-full bg-indigo-400 w-[65%] shadow-[0_0_10px_rgba(99,102,241,0.6)]" />
+                </div>
+                <p className="text-[9px] text-cyan-400/60 tracking-widest">
+                  HEAP STABILIZED
+                </p>
+              </div>
+
+              {/* Network */}
+              <div className="flex justify-between items-center text-[10px] text-cyan-500/70 border-t border-cyan-500/20 pt-3 tracking-widest">
+                <span>NETWORK</span>
+                <span className="text-emerald-400 font-bold animate-pulse">
+                  SECURE
+                </span>
               </div>
             </div>
           </MotionDiv>
@@ -161,12 +164,12 @@ function CinematicBoot({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.8 }}
         className="w-full h-full bg-black flex items-center justify-center"
-        >
-          <OrbCore
-            isSpeaking={isSpeaking}
-            audioLevel={audioLevel}
-            audioRef={audioRef}
-          />
+      >
+        <OrbCore
+          isSpeaking={isSpeaking}
+          audioLevel={audioLevel}
+          audioRef={audioRef}
+        />
       </MotionDiv>
     </AnimatePresence>
   );
