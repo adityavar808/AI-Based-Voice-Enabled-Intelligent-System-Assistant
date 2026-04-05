@@ -11,6 +11,7 @@ function getDisplayName(user) {
 }
 
 // Simulated background data stream
+//Login part
 function HexStream() {
   const [stream, setStream] = useState("");
   useEffect(() => {
