@@ -803,7 +803,7 @@ const Home = ({
             }}
           >
             <AnimatePresence>
-              {bootComplete && !isCompact && (
+              {bootComplete && showConversation && !isCompact && (
                 <MotionDiv
                   initial={{ x: -80, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
@@ -843,7 +843,7 @@ const Home = ({
             </div>
 
             <AnimatePresence>
-              {bootComplete && isCompact && showHistoryPanel && (
+              {bootComplete && showConversation && isCompact && showHistoryPanel && (
                 <MotionDiv
                   initial={{ opacity: 0, y: -12 }}
                   animate={{ opacity: 1, y: 0 }}
