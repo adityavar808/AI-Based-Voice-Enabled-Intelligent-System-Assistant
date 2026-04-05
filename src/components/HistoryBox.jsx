@@ -19,8 +19,8 @@ const HistoryBox = ({ compact = false, groups = FALLBACK_HISTORY }) => {
   return (
     <div
       style={{
-        width: compact ? "min(100%, 420px)" : "300px",
-        height: compact ? "min(60dvh, 520px)" : "calc(100dvh - 120px)",
+        width: compact ? "min(100%, 320px)" : "100%",
+        height: compact ? "min(60dvh, 520px)" : "100%",
         borderRadius: "16px",
         background: "rgba(12,18,28,0.55)",
         backdropFilter: "blur(14px)",
