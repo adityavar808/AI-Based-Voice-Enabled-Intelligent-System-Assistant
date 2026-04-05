@@ -1,22 +1,20 @@
-from app.database.mongo import conversations_collection
+from app.database.mongo import users_collection
+from app.core.security import hash_password
 
 
-def save_message(user_email, role, content):
+def create_user(email: str, password: str, name: str):
+    user = {
+        "email": email.strip().lower(),
+        "password": hash_password(password),
+        "name": name,
+    }
+    users_collection.insert_one(user)
+    return user
 
-    conversations_collection.insert_one({
-        "user_email": user_email,
-        "role": role,
-        "content": content
-    })
+
+def find_user_by_email(email: str):
+    return users_collection.find_one({"email": email.strip().lower()})
 
 
-def get_history(user_email):
-
-    messages = list(conversations_collection.find({
-        "user_email": user_email
-    }))
-
-    return [
-        {"role": m["role"], "content": m["content"]}
-        for m in messages
-    ]
+def user_exists(email: str) -> bool:
+    return find_user_by_email(email) is not None
