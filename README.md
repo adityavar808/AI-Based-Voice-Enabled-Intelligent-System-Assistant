@@ -120,26 +120,26 @@ The backend will run on `http://localhost:8000`
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     ZENIX Frontend (React)                   │
+│                     ZENIX Frontend (React)                  │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │  Voice UI  │  Chat Box  │  Settings  │  Boot Sequence   │
+│  │  Voice UI  │  Chat Box  │  Settings  │  Boot Sequence│   |
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
-                              ↓ HTTP/REST
+                              ↓ (HTTP/REST)
 ┌─────────────────────────────────────────────────────────────┐
-│                   ZENIX Backend (FastAPI)                    │
-│  ┌───────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │   Auth    │  │  Chat    │  │   AI     │  │ Database │   │
-│  │   Routes  │  │  Routes  │  │ Services │  │ (Mongo)  │   │
-│  └───────────┘  └──────────┘  └──────────┘  └──────────┘   │
+│                   ZENIX Backend (FastAPI)                   │
+│  ┌───────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│  │   Auth    │  │  Chat    │  │   AI     │  │ Database │    │
+│  │   Routes  │  │  Routes  │  │ Services │  │ (Mongo)  │    │
+│  └───────────┘  └──────────┘  └──────────┘  └──────────┘    │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│               External Services (Optional)                    │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │ Groq API │  │ Google   │  │ MongoDB  │  │ Analytics│    │
-│  │  (Chat)  │  │ Cloud    │  │  Atlas   │  │ (Vercel) │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
+│               External Services (Optional)                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+│  │ Groq API │  │ Google   │  │ MongoDB  │  │ Analytics│     │
+│  │  (Chat)  │  │ Cloud    │  │  Atlas   │  │ (Vercel) │     │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -211,261 +211,6 @@ zenix/
 ├── tailwind.config.js        # Tailwind configuration
 └── README.md                 # This file
 ```
-
-### API Endpoints
-
-#### 🔐 Authentication Routes
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---|
-| POST | `/api/register` | Register new user | ❌ |
-| POST | `/api/login` | User login | ❌ |
-| GET | `/api/me` | Get current user info | ✅ |
-
-**Register/Login Request:**
-```json
-{
-  "email": "user@example.com",
-  "password": "securepassword123",
-  "name": "John Doe"  // Optional for registration
-}
-```
-
-**Response:**
-```json
-{
-  "access_token": "eyJhbGc...",
-  "refresh_token": "eyJhbGc...",
-  "token_type": "bearer",
-  "user": {
-    "email": "user@example.com",
-    "name": "John Doe"
-  }
-}
-```
-
-#### 💬 Chat Routes
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---|
-| POST | `/api/chat` | Send chat message | ❌ (Optional) |
-| GET | `/api/history` | Get chat history | ✅ |
-| POST | `/api/transcribe` | Transcribe audio | ❌ |
-
-**Chat Request:**
-```json
-{
-  "message": "What is the weather today?",
-  "history": [
-    {
-      "role": "user",
-      "content": "Previous message"
-    },
-    {
-      "role": "assistant",
-      "content": "Previous response"
-    }
-  ]
-}
-```
-
-**Chat Response:**
-```json
-{
-  "reply": "Here's the weather information..."
-}
-```
-
-#### 🏥 System Routes
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Server status |
-| GET | `/health` | Health check with service details |
-
-**Health Check Response:**
-```json
-{
-  "status": "ok",
-  "service": "zenix-backend",
-  "version": "1.0.0",
-  "mongo_configured": true,
-  "mongo_ready": true,
-  "mongo_error": null
-}
-```
-
----
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-Create a `.env` file in the `Backend/` directory:
-
-```bash
-# FastAPI Configuration
-SECRET_KEY=your-super-secret-key-change-this
-
-# MongoDB (Optional - uses in-memory fallback if not set)
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/zenix?retryWrites=true&w=majority
-
-# AI Service (Optional - uses mock responses if not set)
-GROQ_API_KEY=your-groq-api-key
-GOOGLE_API_KEY=your-google-api-key
-
-# Frontend Configuration (.env in root directory)
-VITE_API_URL=http://127.0.0.1:8000
-```
-
-### Getting API Keys
-
-**Groq API:**
-1. Visit [console.groq.com](https://console.groq.com)
-2. Sign up and create an API key
-3. Add to `GROQ_API_KEY` in `.env`
-
-**MongoDB Atlas:**
-1. Visit [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
-2. Create free cluster
-3. Get connection string and add to `MONGO_URI`
-
-**Google Cloud:**
-1. Enable Google Cloud Speech API
-2. Create service account and get credentials
-3. Set `GOOGLE_API_KEY`
-
----
-
-## 🧪 Testing & Development
-
-### Frontend Development
-
-```bash
-# Run development server with hot reload
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Lint code
-npm run lint
-```
-
-### Backend Development
-
-```bash
-# Run with auto-reload (development)
-python -m uvicorn app.main:app --reload
-
-# Run with specific host/port
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-# Access API documentation
-# Swagger UI: http://localhost:8000/docs
-# ReDoc: http://localhost:8000/redoc
-```
-
-### Testing with Postman
-
-1. **Register User**
-   - Method: `POST`
-   - URL: `http://localhost:8000/api/register`
-   - Body (JSON):
-     ```json
-     {
-       "email": "test@example.com",
-       "password": "password123",
-       "name": "Test User"
-     }
-     ```
-
-2. **Send Chat Message**
-   - Method: `POST`
-   - URL: `http://localhost:8000/api/chat`
-   - Body (JSON):
-     ```json
-     {
-       "message": "Hello, how are you?",
-       "history": []
-     }
-     ```
-
-3. **Get History (Authenticated)**
-   - Method: `GET`
-   - URL: `http://localhost:8000/api/history`
-   - Headers: `Authorization: Bearer YOUR_ACCESS_TOKEN`
-
----
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-**Issue: 503 Service Unavailable on Register**
-```
-Solution: MONGO_URI is set but MongoDB is unavailable.
-Options:
-1. Comment out MONGO_URI to use in-memory storage
-2. Fix your MongoDB connection string
-3. Check network access rules in MongoDB Atlas
-```
-
-**Issue: CORS Errors**
-```
-Solution: Backend CORS is configured for all origins.
-If issues persist, check:
-1. VITE_API_URL is set correctly
-2. Backend is running on expected port
-3. Browser console for specific errors
-```
-
-**Issue: Voice Not Working**
-```
-Solution: Browser Web Speech API may not be available.
-Check:
-1. Browser support (Chrome/Edge recommended)
-2. Microphone permissions granted
-3. Check browser console for errors
-```
-
-**Issue: No AI Responses (Mock Fallback)**
-```
-Solution: GROQ_API_KEY not set.
-Add your Groq API key to Backend/.env
-Without it, you'll receive placeholder responses
-```
-
----
-
-## 📦 Deployment
-
-### Deploy Frontend (Vercel)
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-```
-
-### Deploy Backend (Railway/Render)
-
-1. Create account on Railway or Render
-2. Connect GitHub repository
-3. Set environment variables
-4. Deploy
-
-**Environment Variables to Set:**
-- `SECRET_KEY` - Your JWT secret
-- `MONGO_URI` - MongoDB connection string
-- `GROQ_API_KEY` - Groq API key
-
----
 
 ## 🤝 Contributing
 
