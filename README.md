@@ -1,5 +1,3 @@
-# <div align="center">🎯 ZENIX</div>
-
 # <div align="center">
 ```
 ███████╗  ███████╗  ███╗   ██╗  ██╗  ██╗  ██╗ 
