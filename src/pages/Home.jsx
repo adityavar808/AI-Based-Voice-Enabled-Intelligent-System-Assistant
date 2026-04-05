@@ -662,92 +662,39 @@ const Home = ({
           {audioError}
         </div>
       )}
-
-      {bootComplete && (
-        <div
-          style={{
-            position: "absolute",
-            top: isMobile ? "12px" : "18px",
-            left: isMobile ? "12px" : "18px",
-            zIndex: 100,
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div
+      <AnimatePresence>
+        {showConversation && bootComplete && (
+          <MotionDiv
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              padding: isMobile ? "10px 12px" : "9px 14px",
+              position: "absolute",
+              top: isMobile ? "12px" : "18px",
+              left: isCompact ? "auto" : "50%",
+              right: isCompact ? (isMobile ? "12px" : "18px") : "auto",
+              transform: isCompact ? "none" : "translateX(-50%)",
+              zIndex: 100,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(5,12,24,0.75)",
+              backdropFilter: "blur(20px)",
+              border: "1px solid rgba(96,165,250,0.18)",
               borderRadius: "999px",
-              border: "1px solid rgba(148,163,184,0.16)",
-              background: "rgba(7,12,22,0.58)",
-              backdropFilter: "blur(14px)",
-              color: authUser ? "#cffafe" : "#cbd5e1",
-              fontSize: "11px",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
+              padding: "4px",
+              boxShadow: "0 0 24px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.04)",
             }}
           >
-            {authUser
-              ? `Linked ${authUser.name || authUser.email}`
-              : "Guest session"}
-          </div>
-
-          {authUser && (
-            <button
-              onClick={onLogout}
-              style={{
-                ...controlButtonStyle,
-                width: "auto",
-                padding: "0 14px",
-                color: "#cbd5e1",
-                fontSize: "11px",
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-              }}
-            >
-              Logout
-            </button>
-          )}
-        </div>
-      )}
-
-      <div
-        style={{
-          position: "absolute",
-          top: isMobile ? "12px" : "18px",
-          left: isCompact ? "auto" : "50%",
-          right: isCompact ? (isMobile ? "12px" : "18px") : "auto",
-          transform: isCompact ? "none" : "translateX(-50%)",
-          zIndex: 100,
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-        }}
-      >
-        {bootComplete && (
-          <>
             {isCompact && (
               <button
                 onClick={() => setShowHistoryPanel((prev) => !prev)}
                 style={controlButtonStyle}
                 aria-label="Toggle history panel"
               >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#60a5fa"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ filter: "drop-shadow(0 0 6px #3b82f6)" }}
-                >
-                  <path d="M3 6h18" />
-                  <path d="M3 12h18" />
-                  <path d="M3 18h12" />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 0 6px #3b82f6)" }}>
+                  <path d="M3 6h18" /><path d="M3 12h18" /><path d="M3 18h12" />
                 </svg>
               </button>
             )}
@@ -758,38 +705,58 @@ const Home = ({
               style={{
                 ...controlButtonStyle,
                 cursor: isOrbReady ? "pointer" : "not-allowed",
-                boxShadow: isOrbReady ? controlButtonStyle.boxShadow : "none",
                 opacity: isOrbReady ? 1 : 0.4,
+                border: "none",
+                background: "transparent",
+                boxShadow: "none",
               }}
-              onMouseEnter={(event) => {
-                if (!isOrbReady) return;
-                event.currentTarget.style.boxShadow =
-                  "0 0 22px rgba(59,130,246,0.6)";
-              }}
-              onMouseLeave={(event) => {
-                if (!isOrbReady) return;
-                event.currentTarget.style.boxShadow =
-                  "0 0 12px rgba(59,130,246,0.35)";
-              }}
+              onMouseEnter={(e) => { if (!isOrbReady) return; e.currentTarget.style.background = "rgba(59,130,246,0.15)"; }}
+              onMouseLeave={(e) => { if (!isOrbReady) return; e.currentTarget.style.background = "transparent"; }}
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#60a5fa"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ filter: "drop-shadow(0 0 6px #3b82f6)" }}
-              >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 0 6px #3b82f6)" }}>
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0A1.65 1.65 0 0 0 20.91 11H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
             </button>
-          </>
+
+            <div style={{ width: "1px", height: "20px", background: "rgba(96,165,250,0.2)", margin: "0 2px" }} />
+
+            <div style={{
+              padding: "6px 14px",
+              color: authUser ? "#7dd3fc" : "#94a3b8",
+              fontSize: "11px",
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              fontWeight: 500,
+            }}>
+              {authUser ? `⬡ ${authUser.name || authUser.email}` : "Guest"}
+            </div>
+
+            {authUser && (
+              <button
+                onClick={onLogout}
+                style={{
+                  padding: "6px 16px",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(248,113,113,0.25)",
+                  background: "rgba(127,29,29,0.3)",
+                  color: "#fca5a5",
+                  fontSize: "11px",
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  marginRight: "2px",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(127,29,29,0.55)"; e.currentTarget.style.borderColor = "rgba(248,113,113,0.5)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(127,29,29,0.3)"; e.currentTarget.style.borderColor = "rgba(248,113,113,0.25)"; }}
+              >
+                Logout
+              </button>
+            )}
+          </MotionDiv>
         )}
-      </div>
+      </AnimatePresence>
 
       <AnimatePresence mode="wait">
         {!start ? (
@@ -828,11 +795,12 @@ const Home = ({
                   exit={{ x: -80, opacity: 0 }}
                   transition={{ duration: 0.5 }}
                   style={{
-                    width: "300px",
-                    height: "100%",
+                    width: "330px",
+                    height: "89%",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "center",
+                    alignSelf: "center",
                   }}
                 >
                   <HistoryBox groups={historyGroups} />
@@ -919,8 +887,12 @@ const Home = ({
                     right: isCompact ? (isMobile ? "14px" : "24px") : undefined,
                     bottom: isCompact
                       ? authUser
-                        ? (isMobile ? "14px" : "24px")
-                        : (isMobile ? "14px" : "24px")
+                        ? isMobile
+                          ? "14px"
+                          : "24px"
+                        : isMobile
+                          ? "14px"
+                          : "24px"
                       : undefined,
                   }}
                 >
