@@ -100,7 +100,7 @@ function App() {
       <Home
         start={start}
         setStart={setStart}
-        openSettings={() => setShowSettings(true)}
+        openSettings={() => setShowSettings((prev) => !prev)}
         isOrbReady={isOrbReady}
         setIsOrbReady={setIsOrbReady}
         authStatus={authState.status}
