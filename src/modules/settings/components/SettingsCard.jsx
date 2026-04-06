@@ -1,24 +1,56 @@
 export default function SettingsCard({ title, description, children }) {
   return (
-    <div className="bg-white/5 border border-blue-500/20 rounded-xl p-6 mb-6 hover:border-blue-400/40 transition shadow-[0_0_5px_rgba(59,130,246,0.2)]">
+    <div
+      className="relative mb-5 p-5"
+      style={{
+        background: "rgba(0, 15, 20, 0.7)",
+        border: "1px solid rgba(0, 247, 255, 0.12)",
+      }}
+    >
+      {/* Corner brackets */}
+      <span className="absolute top-0 left-0 w-3 h-3 border-t border-l border-cyan-400/60" />
+      <span className="absolute top-0 right-0 w-3 h-3 border-t border-r border-cyan-400/60" />
+      <span className="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-cyan-400/60" />
+      <span className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-cyan-400/60" />
+
+      {/* Top accent line */}
+      <div
+        className="absolute top-0 left-0 right-0 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(0,247,255,0.35), transparent)",
+        }}
+      />
 
       {/* Title */}
-      <h3 className="text-lg font-semibold text-white mb-2">
-        {title}
-      </h3>
-
-      {/* Description */}
-      {description && (
-        <p className="text-sm text-white/60 mb-4">
-          {description}
-        </p>
+      {title && (
+        <div className="mb-3">
+          <p
+            className="text-xs font-mono font-bold tracking-widest uppercase mb-0.5"
+            style={{ color: "#00f7ff" }}
+          >
+            // {title}
+          </p>
+          {description && (
+            <p
+              className="text-xs font-mono"
+              style={{ color: "rgba(0,247,255,0.35)" }}
+            >
+              {description}
+            </p>
+          )}
+        </div>
       )}
 
-      {/* Content */}
-      <div className="text-white">
-        {children}
-      </div>
+      {/* Divider */}
+      {title && (
+        <div
+          className="mb-4 h-px"
+          style={{ background: "rgba(0,247,255,0.08)" }}
+        />
+      )}
 
+      <div>{children}</div>
     </div>
   );
 }
