@@ -20,11 +20,7 @@ export default function SettingsPage({ onClose }) {
       ai: { model: "zenix-core", temperature: 0.7 },
       security: { micAccess: true },
       memory: { enabled: true },
-      integrations: {
-        enabled: false,
-        googleDrive: false,
-        slack: false,
-      },
+      integrations: { enabled: false, googleDrive: false, slack: false },
       voice: { sensitivity: 50, profile: "auto" },
       appearance: { darkMode: true },
       developer: { debug: false },
@@ -36,20 +32,12 @@ export default function SettingsPage({ onClose }) {
     try {
       const saved = localStorage.getItem("zenix-settings");
       if (!saved) return defaultSettings;
-
       const parsed = JSON.parse(saved);
-
       return {
         ...defaultSettings,
         ...parsed,
-        integrations: {
-          ...defaultSettings.integrations,
-          ...(parsed.integrations || {}),
-        },
-        voice: {
-          ...defaultSettings.voice,
-          ...(parsed.voice || {}),
-        },
+        integrations: { ...defaultSettings.integrations, ...(parsed.integrations || {}) },
+        voice: { ...defaultSettings.voice, ...(parsed.voice || {}) },
       };
     } catch {
       return defaultSettings;
@@ -59,139 +47,195 @@ export default function SettingsPage({ onClose }) {
   const [savedSettings, setSavedSettings] = useState(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [logLines, setLogLines] = useState([
+    "> SETTINGS_PANEL.INIT [OK]",
+    "> CONFIG_LOAD [OK]",
+  ]);
 
   useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const isDirty =
-    JSON.stringify(settings) !== JSON.stringify(savedSettings);
+  const isDirty = JSON.stringify(settings) !== JSON.stringify(savedSettings);
 
   const handleSave = async () => {
     setIsSaving(true);
-
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
+    setLogLines((l) => [...l, "> WRITING_CONFIG..."]);
+    await new Promise((r) => setTimeout(r, 800));
     localStorage.setItem("zenix-settings", JSON.stringify(settings));
     setSavedSettings(settings);
-
     setIsSaving(false);
     setShowToast(true);
-
+    setLogLines((l) => [...l, "> SYNC_COMPLETE [OK]"]);
     setTimeout(() => setShowToast(false), 2500);
   };
 
   const handleCancel = () => {
     setSettings(savedSettings);
+    setLogLines((l) => [...l, "> CHANGES_REVERTED"]);
   };
 
   const resetToDefault = () => {
     setSettings(defaultSettings);
+    setLogLines((l) => [...l, "> FACTORY_RESET [OK]"]);
   };
 
-  const renderActiveTab = () => {
-    const props = {
-      settings,
-      setSettings,
-      resetToDefault,
-    };
+  const tabProps = { settings, setSettings, resetToDefault };
 
+  const renderActiveTab = () => {
     switch (activeTab) {
-      case "ai-model":
-        return <AIModelTab {...props} />;
-      case "security":
-        return <SecurityTab {...props} />;
-      case "memory":
-        return <MemoryTab {...props} />;
-      case "integrations":
-        return <IntegrationsTab {...props} />;
-      case "voice":
-        return <VoiceTab {...props} />;
-      case "appearance":
-        return <AppearanceTab {...props} />;
-      case "developer":
-        return <DeveloperTab {...props} />;
-      default:
-        return <AIModelTab {...props} />;
+      case "ai-model":      return <AIModelTab {...tabProps} />;
+      case "security":      return <SecurityTab {...tabProps} />;
+      case "memory":        return <MemoryTab {...tabProps} />;
+      case "integrations":  return <IntegrationsTab {...tabProps} />;
+      case "voice":         return <VoiceTab {...tabProps} />;
+      case "appearance":    return <AppearanceTab {...tabProps} />;
+      case "developer":     return <DeveloperTab {...tabProps} />;
+      default:              return <AIModelTab {...tabProps} />;
     }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,5,8,0.88)", backdropFilter: "blur(8px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
+      {/* Ambient glow */}
+      <div
+        className="pointer-events-none absolute"
+        style={{
+          width: 600,
+          height: 600,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(0,247,255,0.035) 0%, transparent 70%)",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+        }}
+      />
 
-      {/* Popup Panel */}
-      <div className="relative flex h-[92vh] w-[96%] max-w-6xl flex-col overflow-hidden rounded-2xl border border-cyan-400/30 bg-black/80 shadow-[0_0_40px_rgba(0,247,255,0.25)] lg:h-[80%] lg:flex-row">
+      {/* Panel */}
+      <div
+        className="relative flex h-[92vh] w-[96%] max-w-6xl flex-col overflow-hidden lg:h-[82%] lg:flex-row"
+        style={{
+          background: "rgba(0, 10, 15, 0.95)",
+          border: "1px solid rgba(0,247,255,0.18)",
+          boxShadow:
+            "0 0 60px rgba(0,247,255,0.1), 0 0 0 1px rgba(0,247,255,0.04), inset 0 1px 0 rgba(0,247,255,0.08)",
+        }}
+      >
+        {/* Corner brackets on panel */}
+        <span className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 z-10" style={{ borderColor: "rgba(0,247,255,0.5)" }} />
+        <span className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 z-10" style={{ borderColor: "rgba(0,247,255,0.5)" }} />
+        <span className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 z-10" style={{ borderColor: "rgba(0,247,255,0.5)" }} />
+        <span className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 z-10" style={{ borderColor: "rgba(0,247,255,0.5)" }} />
 
         {/* Sidebar */}
-        <SettingsSidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-        />
+        <SettingsSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {/* Content */}
+        {/* Main */}
         <div className="flex min-h-0 flex-1 flex-col">
 
           {/* Header */}
-          <div className="flex h-16 items-center justify-between border-b border-cyan-400/20 px-4 sm:px-6 lg:px-8">
-            <h1 className="text-lg font-semibold text-cyan-400">
-              ZENIX Settings
-            </h1>
+          <div
+            className="flex h-14 flex-shrink-0 items-center justify-between px-6"
+            style={{ borderBottom: "1px solid rgba(0,247,255,0.1)" }}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: "#00f7ff", boxShadow: "0 0 6px #00f7ff" }}
+              />
+              <span
+                className="font-mono text-sm font-bold tracking-widest uppercase"
+                style={{ color: "#00f7ff", textShadow: "0 0 10px rgba(0,247,255,0.5)" }}
+              >
+                SYS.CONFIG // {activeTab.replace("-", "_").toUpperCase()}
+              </span>
+            </div>
 
             <button
               onClick={onClose}
-              className="text-sm text-cyan-400 hover:text-cyan-300 transition"
+              className="font-mono text-xs tracking-widest transition-all duration-150 px-3 py-1.5"
+              style={{
+                color: "rgba(0,247,255,0.5)",
+                border: "1px solid rgba(0,247,255,0.15)",
+                background: "transparent",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "#00f7ff";
+                e.currentTarget.style.borderColor = "rgba(0,247,255,0.4)";
+                e.currentTarget.style.boxShadow = "0 0 8px rgba(0,247,255,0.2)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "rgba(0,247,255,0.5)";
+                e.currentTarget.style.borderColor = "rgba(0,247,255,0.15)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             >
-              Close
+              [ESC] CLOSE
             </button>
           </div>
 
-          {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          {/* Tab content */}
+          <div
+            className="flex-1 overflow-y-auto p-5 lg:p-7"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(0,247,255,0.013) 28px, rgba(0,247,255,0.013) 29px)",
+            }}
+          >
             {renderActiveTab()}
           </div>
 
-          {/* Save Bar (inside popup now) */}
+          {/* Save bar */}
           <AnimatePresence>
             {isDirty && (
               <MotionDiv
-                initial={{ y: 80 }}
+                initial={{ y: 60 }}
                 animate={{ y: 0 }}
-                exit={{ y: 80 }}
-                transition={{ duration: 0.25 }}
-                className="flex flex-col gap-3 border-t border-cyan-400/20 bg-black/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"
+                exit={{ y: 60 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+                style={{
+                  borderTop: "1px solid rgba(0,247,255,0.15)",
+                  background: "rgba(0,247,255,0.03)",
+                }}
               >
-                <span className="text-sm text-white/70">
-                  You have unsaved changes
+                <span className="font-mono text-xs" style={{ color: "rgba(0,247,255,0.5)" }}>
+                  {">"} UNSAVED_CHANGES_DETECTED —
                 </span>
 
-                <div className="flex gap-4">
+                <div className="flex gap-3">
                   <button
                     onClick={handleCancel}
-                    className="text-sm text-white/60 hover:text-white"
+                    className="font-mono text-xs px-4 py-2 transition-all"
+                    style={{
+                      color: "rgba(0,247,255,0.4)",
+                      border: "1px solid rgba(0,247,255,0.12)",
+                      background: "transparent",
+                    }}
                   >
-                    Cancel
+                    REVERT
                   </button>
 
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="bg-cyan-500 text-black px-4 py-2 rounded-md text-sm flex items-center gap-2 shadow-[0_0_10px_#22d3ee] hover:bg-cyan-400 transition"
+                    className="font-mono text-xs px-5 py-2 font-bold tracking-widest transition-all"
+                    style={{
+                      background: isSaving
+                        ? "rgba(0,247,255,0.1)"
+                        : "rgba(0,247,255,0.15)",
+                      border: "1px solid rgba(0,247,255,0.5)",
+                      color: "#00f7ff",
+                      boxShadow: isSaving ? "none" : "0 0 12px rgba(0,247,255,0.25)",
+                    }}
                   >
-                    {isSaving ? "Saving..." : "Save Changes"}
+                    {isSaving ? "WRITING..." : "SAVE_CONFIG"}
                   </button>
                 </div>
               </MotionDiv>
@@ -205,17 +249,30 @@ export default function SettingsPage({ onClose }) {
       <AnimatePresence>
         {showToast && (
           <MotionDiv
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed right-4 top-4 rounded-md bg-cyan-400 px-4 py-2 text-sm text-black shadow-lg sm:right-6 sm:top-6"
+            transition={{ duration: 0.25 }}
+            className="fixed top-5 right-5 font-mono text-xs px-4 py-2.5"
+            style={{
+              background: "rgba(0,10,15,0.95)",
+              border: "1px solid rgba(0,247,255,0.4)",
+              color: "#00f7ff",
+              boxShadow: "0 0 20px rgba(0,247,255,0.2)",
+              letterSpacing: "0.06em",
+            }}
           >
-            Settings saved successfully
+            {">"} CONFIG_WRITE_SUCCESS [OK]
           </MotionDiv>
         )}
       </AnimatePresence>
 
+      <style>{`
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,247,255,0.2); }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+      `}</style>
     </div>
   );
 }
