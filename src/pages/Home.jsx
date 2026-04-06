@@ -697,7 +697,10 @@ const Home = ({
             >
               {/* LEFT */}
               <button
-                onClick={isOrbReady ? openSettings : undefined}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isOrbReady) openSettings();
+                }}
                 style={controlButtonStyle}
               >
                 ⚙️
@@ -843,23 +846,26 @@ const Home = ({
             </div>
 
             <AnimatePresence>
-              {bootComplete && showConversation && isCompact && showHistoryPanel && (
-                <MotionDiv
-                  initial={{ opacity: 0, y: -12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -12 }}
-                  transition={{ duration: 0.24 }}
-                  style={{
-                    position: "absolute",
-                    top: isMobile ? "62px" : "74px",
-                    left: isMobile ? "14px" : "24px",
-                    right: isMobile ? "14px" : "24px",
-                    zIndex: 50,
-                  }}
-                >
-                  <HistoryBox compact groups={historyGroups} />
-                </MotionDiv>
-              )}
+              {bootComplete &&
+                showConversation &&
+                isCompact &&
+                showHistoryPanel && (
+                  <MotionDiv
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.24 }}
+                    style={{
+                      position: "absolute",
+                      top: isMobile ? "62px" : "74px",
+                      left: isMobile ? "14px" : "24px",
+                      right: isMobile ? "14px" : "24px",
+                      zIndex: 50,
+                    }}
+                  >
+                    <HistoryBox compact groups={historyGroups} />
+                  </MotionDiv>
+                )}
             </AnimatePresence>
 
             <AnimatePresence>
