@@ -21,7 +21,12 @@
 
 *An immersive voice-first AI assistant with cinematic UI, real-time speech recognition, and intelligent conversations.*
 
-[🚀 Quick Start](#-quick-start) • [📖 Documentation](#-documentation) • [🏗️ Architecture](#-architecture) • [🤝 Contributing](#-contributing)
+<p align="center">
+  <a href="#-quick-start"><img src="https://img.shields.io/badge/🚀%20Quick%20Start-blue?style=for-the-badge"></a>
+  <a href="#-documentation"><img src="https://img.shields.io/badge/📖%20Documentation-green?style=for-the-badge"></a>
+  <a href="#-architecture"><img src="https://img.shields.io/badge/🏗️%20Architecture-orange?style=for-the-badge"></a>
+  <a href="#-contributing"><img src="https://img.shields.io/badge/🤝%20Contributing-purple?style=for-the-badge"></a>
+</p>
 
 </div>
 
