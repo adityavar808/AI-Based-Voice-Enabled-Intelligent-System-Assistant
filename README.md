@@ -235,40 +235,33 @@ zenix/
 <tr>
 
 <td align="center">
-<a href="https://github.com/yourusername">
 <img src="https://github.com/yourusername.png" width="110px;" style="border-radius:50%" />
 <br />
 <h3>Aditya Varshney</h3>
-</a>
+<p>🧠 AI Engineer & Full Stack Developer</p>
+<p><sub>GenAI • System Design • Frontend • Backend • AI Integration</sub></p>
+</td>
+
+<td align="center">
+<img src="https://github.com/yourusername2.png" width="110px;" style="border-radius:50%" />
+<br />
+<h3>Alok</h3>
 <p>🚀 Full Stack Developer</p>
-<p><sub>Frontend • Backend • AI Integration</sub></p>
+<p><sub>Frontend • Backend • API Integration • Authentication</sub></p>
 </td>
 
 <td align="center">
-<a href="https://github.com/teammate1">
-<img src="https://github.com/teammate1.png" width="110px;" style="border-radius:50%" />
+<img src="https://github.com/yourusername3.png" width="110px;" style="border-radius:50%" />
 <br />
-<h3>Himanshu</h3>
-</a>
-<p>⚙️ Backend Developer</p>
-<p><sub>APIs • Database • Auth</sub></p>
-</td>
-
-<td align="center">
-<a href="https://github.com/teammate2">
-<img src="https://github.com/teammate2.png" width="110px;" style="border-radius:50%" />
-<br />
-<h3>Teammate 3</h3>
-</a>
-<p>🎨 Frontend Developer</p>
-<p><sub>UI/UX • Animations</sub></p>
+<h3>Krishna Tanwar</h3>
+<p>💻 Full Stack Developer</p>
+<p><sub>Frontend • Backend</sub></p>
 </td>
 
 </tr>
 </table>
 
 </div>
-
 ## 🤝 Contributing
 
 We welcome contributions! Here's how you can help:
