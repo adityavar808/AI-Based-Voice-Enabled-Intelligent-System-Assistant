@@ -239,7 +239,7 @@ zenix/
 <br />
 <h3>Aditya Varshney</h3>
 <p>🧠 AI Engineer & Full Stack Developer</p>
-<p><sub>GenAI • System Design • Frontend • Backend • AI Integration</sub></p>
+<p><sub>GenAI • Frontend • Backend • AI Integration</sub></p>
 </td>
 
 <td align="center">
