@@ -227,6 +227,48 @@ zenix/
 └── README.md                 # This file
 ```
 
+## 👨‍🚀 Meet the Team
+
+<div align="center">
+
+<table>
+<tr>
+
+<td align="center">
+<a href="https://github.com/yourusername">
+<img src="https://github.com/yourusername.png" width="110px;" style="border-radius:50%" />
+<br />
+<h3>Aditya Varshney</h3>
+</a>
+<p>🚀 Full Stack Developer</p>
+<p><sub>Frontend • Backend • AI Integration</sub></p>
+</td>
+
+<td align="center">
+<a href="https://github.com/teammate1">
+<img src="https://github.com/teammate1.png" width="110px;" style="border-radius:50%" />
+<br />
+<h3>Himanshu</h3>
+</a>
+<p>⚙️ Backend Developer</p>
+<p><sub>APIs • Database • Auth</sub></p>
+</td>
+
+<td align="center">
+<a href="https://github.com/teammate2">
+<img src="https://github.com/teammate2.png" width="110px;" style="border-radius:50%" />
+<br />
+<h3>Teammate 3</h3>
+</a>
+<p>🎨 Frontend Developer</p>
+<p><sub>UI/UX • Animations</sub></p>
+</td>
+
+</tr>
+</table>
+
+</div>
+
 ## 🤝 Contributing
 
 We welcome contributions! Here's how you can help:
