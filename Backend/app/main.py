@@ -11,6 +11,7 @@ from app.database.mongo import (
 )
 from app.routes import auth, chat
 
+# initialize fastAPI
 app = FastAPI(title="ZENIX Backend")
 
 limiter = Limiter(key_func=get_remote_address)
