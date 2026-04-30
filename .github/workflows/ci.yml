@@ -60,3 +60,28 @@ jobs:
     steps:
       - name: Trigger Render Deploy
         run: curl -X POST https://api.render.com/deploy/srv-d6knel95pdvs7385d52g?key=UDbvEV9pmUw
+
+  notify:
+    name: Notify on PR Merge
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+
+    steps:
+      - name: Send Email Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "PR Merged 🚀 - Zenix"
+          to: adityavarshney808@gmail.com
+          from: Zenix CI/CD
+          body: |
+            A pull request has been merged.
+
+            Repo: ${{ github.repository }}
+            PR Title: ${{ github.event.pull_request.title }}
+            Merged by: ${{ github.actor }}
+            Link: ${{ github.event.pull_request.html_url }}
